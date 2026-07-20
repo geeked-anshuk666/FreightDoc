@@ -1,0 +1,26 @@
+# Python environments, caches, and coverage
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local configuration and data
+.env
+.env.*
+*.sqlite3
+*.db
+uploads/
+tmp/
+
+# Development-only material
+tests/
+docs/
+.git/
+.gitignore
+Dockerfile*
+README*

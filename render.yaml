@@ -1,0 +1,30 @@
+# Render Blueprint for the free-tier FreightDoc API. Configure every value
+# marked `sync: false` in the Render dashboard; do not put secret values here.
+services:
+  - type: web
+    name: freightdoc-api
+    runtime: docker
+    plan: free
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: CLERK_JWKS_URL
+        sync: false
+      - key: CLERK_ISSUER
+        sync: false
+      - key: CLERK_AUDIENCE
+        sync: false
+      - key: AI_PROVIDER
+        value: groq
+      - key: AI_MODEL
+        value: llama-3.3-70b-versatile
+      - key: PYTHONUNBUFFERED
+        value: "1"
