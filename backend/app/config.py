@@ -42,7 +42,9 @@ class Settings:
 
 @lru_cache
 def get_settings() -> Settings:
-    load_dotenv(override=True)
+    # Windows editors often save a UTF-8 BOM. ``utf-8-sig`` consumes it so the
+    # first setting is not accidentally exposed as ``\ufeffGROQ_API_KEY``.
+    load_dotenv(override=True, encoding="utf-8-sig")
     algorithms = tuple(
         algorithm.strip() for algorithm in os.getenv("CLERK_JWT_ALGORITHMS", "RS256").split(",") if algorithm.strip()
     )

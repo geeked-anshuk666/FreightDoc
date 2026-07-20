@@ -19,9 +19,9 @@ from app.config import get_settings
 
 
 # psycopg's asynchronous connection implementation is incompatible with the
-# Windows Proactor event loop. Set the compatible policy before Alembic or
-# Uvicorn constructs the application's event loop/engine. Linux deployments
-# (Render) retain their normal event-loop policy.
+# Windows Proactor event loop. ``run_local.py`` applies this before Uvicorn
+# starts; retain this guard for Alembic and scripts that import the module
+# before constructing their own loop. Linux deployments retain their policy.
 if sys.platform == "win32":  # pragma: no cover - platform-specific bootstrap
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 

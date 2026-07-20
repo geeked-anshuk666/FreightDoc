@@ -132,7 +132,7 @@ Run the services in separate shells:
 ```powershell
 # API
 cd backend
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+python run_local.py
 
 # PWA
 cd frontend

@@ -48,8 +48,30 @@ function fileIssue(file) {
   return '';
 }
 
+function PipelineFailure({ failure, loading, canRetry, onRetry }) {
+  if (!failure) return null;
+
+  return (
+    <section className="run-error" role="alert" aria-live="assertive" aria-atomic="true">
+      <div className="run-error-copy">
+        <p className="run-error-kicker">DOSSIER PREPARATION PAUSED</p>
+        <h3>We couldn’t prepare the dossier.</h3>
+        <p>{failure.message}</p>
+        <p className="run-error-guidance">{failure.retryGuidance}</p>
+      </div>
+      {(failure.stageLabel || failure.requestId) && (
+        <dl className="run-error-details">
+          {failure.stageLabel && <div><dt>Step</dt><dd>{failure.stageLabel}</dd></div>}
+          {failure.requestId && <div><dt>Reference</dt><dd><code>{failure.requestId}</code></dd></div>}
+        </dl>
+      )}
+      {canRetry && <button type="button" className="run-error-retry" onClick={onRetry} disabled={loading}>{loading ? 'Retrying dossier…' : 'Try again'} <i aria-hidden="true">→</i></button>}
+    </section>
+  );
+}
+
 export default function ShipmentDesk() {
-  const { run, loading, error: pipelineError, result } = useFreightPipeline();
+  const { run, retry, canRetry, loading, error: pipelineError, result } = useFreightPipeline();
   const [activeStage, setActiveStage] = useState('route');
   const [files, setFiles] = useState([]);
   const [fileNotice, setFileNotice] = useState('');
@@ -198,10 +220,10 @@ export default function ShipmentDesk() {
               <button type="submit" disabled={loading || Boolean(corridorMessage)}>{loading ? 'Preparing dossier…' : 'Prepare shipment dossier'} <i aria-hidden="true">→</i></button>
             </footer>
             {formError && <p className="desk-submit-error" role="alert">{formError}</p>}
+            <PipelineFailure failure={pipelineError} loading={loading} canRetry={canRetry} onRetry={retry} />
           </div>
         </form>
       </section>
-      {pipelineError && <section className="run-error" role="alert"><strong>We could not prepare the dossier.</strong><span>{pipelineError}</span></section>}
       {result && <DossierView result={result} />}
     </>
   );

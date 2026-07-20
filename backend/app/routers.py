@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import uuid
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -52,13 +53,66 @@ def _request_id(request: Request) -> str | None:
     return getattr(request.state, "request_id", None)
 
 
-def ai_error(exc: Exception) -> HTTPException:
+def _pipeline_request_id(request: Request) -> str:
+    """Use the middleware correlation ID, with a safe fallback for direct calls."""
+    return _request_id(request) or str(uuid.uuid4())
+
+
+_ERROR_CONTRACTS: dict[str, tuple[int, bool]] = {
+    "AI_CONFIGURATION_ERROR": (status.HTTP_502_BAD_GATEWAY, False),
+    "AI_MALFORMED_RESPONSE": (status.HTTP_502_BAD_GATEWAY, True),
+    "AI_RATE_LIMITED": (status.HTTP_429_TOO_MANY_REQUESTS, True),
+    "AI_SERVICE_ERROR": (status.HTTP_502_BAD_GATEWAY, True),
+    "PIPELINE_INPUT_INVALID": (status.HTTP_422_UNPROCESSABLE_CONTENT, False),
+    "PIPELINE_PROCESSING_ERROR": (status.HTTP_502_BAD_GATEWAY, True),
+}
+_PIPELINE_STAGES = {"classification", "requirements", "tariff_lookup", "generation", "validation", "pdf_rendering", "pipeline"}
+
+
+def _safe_stage(value: object, fallback: str | None) -> str:
+    if isinstance(value, str) and value in _PIPELINE_STAGES:
+        return value
+    if fallback in _PIPELINE_STAGES:
+        return fallback
+    return "pipeline"
+
+
+def _safe_error_message(code: str, stage: str) -> str:
+    label = stage.replace("_", " ")
+    if code == "AI_CONFIGURATION_ERROR":
+        return f"The AI document service is not configured for the {label} step. Contact support with the request ID."
+    if code == "AI_MALFORMED_RESPONSE":
+        return f"The AI document service returned an unusable response for the {label} step. Please retry shortly."
+    if code == "AI_RATE_LIMITED":
+        return f"The AI document service is temporarily rate-limited during the {label} step. Please retry shortly."
+    if code == "PIPELINE_INPUT_INVALID":
+        return f"The shipment details cannot be processed at the {label} step. Review them and try again."
+    if code == "PIPELINE_PROCESSING_ERROR":
+        return f"The dossier could not be prepared during the {label} step. Please retry shortly."
+    return f"The structured AI service could not complete the {label} step safely. Please retry shortly."
+
+
+def ai_error(
+    exc: Exception,
+    *,
+    request_id: str | None = None,
+    stage: str | None = None,
+) -> HTTPException:
+    """Return only the whitelisted, actionable fields for pipeline failures."""
+    code = getattr(exc, "code", "AI_SERVICE_ERROR")
+    if code not in _ERROR_CONTRACTS:
+        code = "AI_SERVICE_ERROR"
+    status_code, retryable = _ERROR_CONTRACTS[code]
+    safe_stage = _safe_stage(getattr(exc, "stage", None), stage)
+    safe_request_id = getattr(exc, "request_id", None) or request_id
     return HTTPException(
-        status_code=status.HTTP_502_BAD_GATEWAY,
+        status_code=status_code,
         detail={
-            "code": "AI_SERVICE_ERROR",
-            "message": "The structured AI service could not complete this step safely.",
-            "request_id": getattr(exc, "request_id", None),
+            "code": code,
+            "message": _safe_error_message(code, safe_stage),
+            "stage": safe_stage,
+            "request_id": safe_request_id,
+            "retryable": retryable,
         },
     )
 
@@ -222,22 +276,25 @@ async def full_pipeline(shipment: ShipmentRequest, request: Request):
     Saved shipment dossier runs use the authenticated route below. This endpoint
     persists nothing and must not be used for private uploads.
     """
+    request_id = _pipeline_request_id(request)
     try:
-        return await PipelineService().run(shipment, _request_id(request) or "standalone")
-    except RuntimeError as exc:
-        raise ai_error(exc) from exc
+        return await PipelineService().run(shipment, request_id)
+    except Exception as exc:
+        raise ai_error(exc, request_id=request_id, stage="pipeline") from None
 
 
 @router.post("/classify", dependencies=[Depends(rate_limit("classify", 12))])
 async def classify(shipment: ShipmentRequest, request: Request):
+    request_id = _pipeline_request_id(request)
     try:
-        return await GroqClient().classify_product(shipment, _request_id(request) or "standalone")
-    except RuntimeError as exc:
-        raise ai_error(exc) from exc
+        return await GroqClient().classify_product(shipment, request_id)
+    except Exception as exc:
+        raise ai_error(exc, request_id=request_id, stage="classification") from None
 
 
 @router.post("/generate", dependencies=[Depends(rate_limit("generate", 10))])
 async def generate(payload: GenerateRequest, request: Request):
+    request_id = _pipeline_request_id(request)
     try:
         from app.models import TariffData
         from datetime import timezone
@@ -247,20 +304,21 @@ async def generate(payload: GenerateRequest, request: Request):
             payload.classification,
             TariffData(duty_rate=None, source="standalone", retrieved_at=datetime.now(timezone.utc)),
             payload.requirements.required_docs,
-            _request_id(request) or "standalone",
+            request_id,
         )
-    except RuntimeError as exc:
-        raise ai_error(exc) from exc
+    except Exception as exc:
+        raise ai_error(exc, request_id=request_id, stage="generation") from None
 
 
 @router.post("/validate", dependencies=[Depends(rate_limit("validate", 10))])
 async def validate(payload: ValidateRequest, request: Request):
+    request_id = _pipeline_request_id(request)
     try:
         return await GroqClient().validate_documents(
-            payload.documents, payload.shipment, payload.requirements.required_docs, _request_id(request) or "standalone"
+            payload.documents, payload.shipment, payload.requirements.required_docs, request_id
         )
-    except RuntimeError as exc:
-        raise ai_error(exc) from exc
+    except Exception as exc:
+        raise ai_error(exc, request_id=request_id, stage="validation") from None
 
 
 # Authenticated shipment workspace -------------------------------------------------
@@ -568,10 +626,11 @@ async def generate_dossier(
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": "INVALID_STATUS_TRANSITION", "message": problem})
         shipment = await repository.set_shipment_status(shipment, ShipmentStatus.PROCESSING.value, _request_id(request))
     complete = _complete_shipment(shipment)
+    pipeline_request_id = _pipeline_request_id(request)
     try:
-        result = await PipelineService().run(complete, _request_id(request) or "saved-dossier")
-    except RuntimeError as exc:
-        raise ai_error(exc) from exc
+        result = await PipelineService().run(complete, pipeline_request_id)
+    except Exception as exc:
+        raise ai_error(exc, request_id=pipeline_request_id, stage="pipeline") from None
     requirements = result.requirements
     if requirements is None:  # defensive guard for older pipeline implementations
         raise HTTPException(status_code=500, detail={"code": "PIPELINE_PROVENANCE_MISSING", "message": "The pipeline did not return rules provenance."})
