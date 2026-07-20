@@ -4,9 +4,11 @@ import asyncio
 import os
 from logging.config import fileConfig
 
+from dotenv import load_dotenv
+load_dotenv(override=True)
+
 from alembic import context
 from sqlalchemy import pool
-from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.database import Base
@@ -26,12 +28,10 @@ def _url() -> str:
     if not value:
         raise RuntimeError("MIGRATIONS_DATABASE_URL or DATABASE_URL must be configured before running Alembic migrations")
     if value.startswith("postgresql://"):
-        value = value.replace("postgresql://", "postgresql+asyncpg://", 1)
-    url = make_url(value)
-    query = dict(url.query)
-    query.pop("channel_binding", None)
-    query.pop("sslmode", None)
-    return str(url.set(query=query))
+        # Keep Neon's TLS and channel-binding options intact; psycopg is the
+        # SQLAlchemy async driver used by both the API and migrations.
+        value = value.replace("postgresql://", "postgresql+psycopg://", 1)
+    return value
 
 
 def run_migrations_offline() -> None:
@@ -49,8 +49,7 @@ def do_run_migrations(connection) -> None:
 async def run_migrations_online() -> None:
     configuration = config.get_section(config.config_ini_section, {})
     configuration["sqlalchemy.url"] = _url()
-    connect_args = {"ssl": "require"} if configuration["sqlalchemy.url"].startswith("postgresql+asyncpg://") else {}
-    connectable = async_engine_from_config(configuration, prefix="sqlalchemy.", poolclass=pool.NullPool, connect_args=connect_args)
+    connectable = async_engine_from_config(configuration, prefix="sqlalchemy.", poolclass=pool.NullPool)
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
     await connectable.dispose()

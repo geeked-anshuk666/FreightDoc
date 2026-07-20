@@ -42,7 +42,7 @@ class Settings:
 
 @lru_cache
 def get_settings() -> Settings:
-    load_dotenv()
+    load_dotenv(override=True)
     algorithms = tuple(
         algorithm.strip() for algorithm in os.getenv("CLERK_JWT_ALGORITHMS", "RS256").split(",") if algorithm.strip()
     )

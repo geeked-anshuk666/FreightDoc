@@ -7,14 +7,23 @@ deployment.
 
 from __future__ import annotations
 
+import asyncio
+import sys
 from collections.abc import AsyncGenerator
 
 from fastapi import HTTPException, status
-from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
 from app.config import get_settings
+
+
+# psycopg's asynchronous connection implementation is incompatible with the
+# Windows Proactor event loop. Set the compatible policy before Alembic or
+# Uvicorn constructs the application's event loop/engine. Linux deployments
+# (Render) retain their normal event-loop policy.
+if sys.platform == "win32":  # pragma: no cover - platform-specific bootstrap
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
 def _database_configuration(database_url: str | None) -> tuple[str | None, dict]:
@@ -23,19 +32,10 @@ def _database_configuration(database_url: str | None) -> tuple[str | None, dict]
 
     normalized = database_url
     if normalized.startswith("postgresql://"):
-        normalized = normalized.replace("postgresql://", "postgresql+asyncpg://", 1)
-
-    # Neon connection strings commonly contain libpq-only parameters. asyncpg
-    # does not accept channel_binding/sslmode in its URL query, so convert the
-    # TLS requirement into connect arguments and remove unsupported parameters.
-    if normalized.startswith("postgresql+asyncpg://"):
-        url = make_url(normalized)
-        query = dict(url.query)
-        sslmode = query.pop("sslmode", None)
-        query.pop("channel_binding", None)
-        normalized = str(url.set(query=query))
-        connect_args = {"ssl": "require"} if sslmode in {"require", "verify-ca", "verify-full"} else {}
-        return normalized, connect_args
+        # psycopg supports Neon's standard libpq connection options, including
+        # sslmode and channel_binding. Keeping those options intact avoids the
+        # authentication failures some asyncpg/Neon combinations can produce.
+        normalized = normalized.replace("postgresql://", "postgresql+psycopg://", 1)
     return normalized, {}
 
 
