@@ -41,4 +41,3 @@ def test_csv_formula_is_kept_inert_in_extracted_text() -> None:
     assert result.status == "extracted"
     assert "'=1+1" in result.text
     assert result.size_bytes > 0
-

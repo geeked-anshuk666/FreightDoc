@@ -10,6 +10,13 @@ synchronization happened.
 
 ## [Unreleased]
 
+### Documentation
+- Implementation reconciliation (2026-07-20): the executable backend currently
+  uses configuration-driven Groq defaults and owner-scoped Clerk/Neon support.
+  Earlier model/stateless references in this planning set remain historical
+  requirements; current behaviour is documented in the root `CHANGELOG.md` and
+  `docs/implementation_notes.md` rather than being silently misrepresented.
+
 ### Changed
 - Runtime AI is Groq (`llama-3.3-70b-versatile`) for classification, generation, and validation; Codex remains build-only.
 - Tariff retrieval now separates USITC and UN Comtrade public-v1 services with concurrent orchestration and fallback data.
