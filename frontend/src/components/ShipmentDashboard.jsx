@@ -3,8 +3,10 @@ import './shipment-dashboard.css';
 
 const STATUS_COPY = {
   draft: ['Draft', 'Finish the brief before generating a dossier.'],
-  review_submitted: ['Needs review', 'The shipment facts are ready for a final review.'],
-  dossier_generated: ['Dossier prepared', 'A generated package is available in the shipment record.'],
+  processing: ['Processing', 'FreightDoc is preparing its review package.'],
+  needs_review: ['Needs review', 'Resolve blockers before this dossier is handed off.'],
+  review_ready: ['Review ready', 'A reviewer can now inspect the versioned dossier.'],
+  archived: ['Archived', 'This shipment is retained as a read-only record.'],
 };
 
 function formatDate(value) {
@@ -33,8 +35,8 @@ export default function ShipmentDashboard() {
       </header>
 
       <section className="dashboard-summary" aria-label="Shipment workspace summary">
-        <article><span>Active briefs</span><strong>{status === 'ready' ? shipments.filter((shipment) => shipment.status !== 'dossier_generated').length : '—'}</strong><small>Drafts and review work</small></article>
-        <article><span>Dossiers prepared</span><strong>{status === 'ready' ? shipments.filter((shipment) => shipment.status === 'dossier_generated').length : '—'}</strong><small>Ready for a human check</small></article>
+        <article><span>Active briefs</span><strong>{status === 'ready' ? shipments.filter((shipment) => shipment.status !== 'archived').length : '—'}</strong><small>Drafts, processing, and review work</small></article>
+        <article><span>Review ready</span><strong>{status === 'ready' ? shipments.filter((shipment) => shipment.status === 'review_ready').length : '—'}</strong><small>Packages ready for human handoff</small></article>
         <article><span>Operating principle</span><strong>Review first</strong><small>FreightDoc is informational—not filing advice.</small></article>
       </section>
 
@@ -70,6 +72,12 @@ export default function ShipmentDashboard() {
                 <a href={`/#workflow`} aria-label={`Open ${shipmentTitle(shipment)}`}>
                   <span className={`shipment-status status-${shipment.status}`}>{label}</span>
                   <div><strong>{shipmentTitle(shipment)}</strong><small>{helper}</small></div>
+                  <span className="shipment-signals" aria-label={`${shipment.document_count || 0} documents${shipment.readiness_score == null ? '' : `, readiness ${shipment.readiness_score} out of 100`}${shipment.blocker_count ? `, ${shipment.blocker_count} blockers` : ''}${shipment.warning_count ? `, ${shipment.warning_count} warnings` : ''}`}>
+                    <b>{shipment.document_count || 0} docs</b>
+                    {shipment.readiness_score != null && <b>{shipment.readiness_score}/100</b>}
+                    {shipment.blocker_count > 0 && <b className="is-blocked">{shipment.blocker_count} blockers</b>}
+                    {shipment.warning_count > 0 && <b>{shipment.warning_count} warnings</b>}
+                  </span>
                   <time dateTime={shipment.updated_at || shipment.created_at || undefined}>{formatDate(shipment.updated_at || shipment.created_at)}</time>
                   <i aria-hidden="true">→</i>
                 </a>
