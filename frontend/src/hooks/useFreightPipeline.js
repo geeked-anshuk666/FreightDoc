@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 const DEFAULT_ERROR_MESSAGE = 'We could not prepare the dossier right now. Please try again shortly.';
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
 
 const RETRYABLE_CODES = new Set([
   'AI_SERVICE_ERROR',
@@ -144,9 +145,11 @@ export function useFreightPipeline() {
     setLastPayload(payload);
     setLoading(true);
     setError(null);
+    // Do not leave a previous shipment package visible while a new request runs.
+    setResult(null);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/full-pipeline`, {
+      const response = await fetch(`${API_BASE_URL}/api/full-pipeline`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

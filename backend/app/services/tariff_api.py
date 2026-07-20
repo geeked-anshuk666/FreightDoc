@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import httpx
 from app.config import get_settings
 from app.models import TariffData
-from app.services.hts_api import FALLBACK_TARIFFS
+from app.services.hts_api import fallback_tariff
 
 logger = logging.getLogger("freightdoc.comtrade")
 
@@ -19,4 +19,4 @@ async def lookup_comtrade(hs_code: str, corridor: str, request_id: str) -> Tarif
                 return TariffData(duty_rate=None, source="UN Comtrade public-v1", additional_flags=["Bilateral trade-data context only; it is not a duty-rate authority."], retrieved_at=datetime.now(timezone.utc))
         except httpx.HTTPError:
             await asyncio.sleep(0.25 * 2**attempt)
-    return TariffData(duty_rate=FALLBACK_TARIFFS[corridor], source="fallback tariff dataset", additional_flags=["UN Comtrade unavailable; illustrative demo fallback."], retrieved_at=datetime.now(timezone.utc), fallback_used=True)
+    return TariffData(duty_rate=fallback_tariff(corridor), source="fallback tariff dataset", additional_flags=["UN Comtrade unavailable; illustrative demo fallback."], retrieved_at=datetime.now(timezone.utc), fallback_used=True)

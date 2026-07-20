@@ -107,7 +107,7 @@ forward-fix plan; an application rollback does not undo schema changes.
 
 | Variable | Required | Notes |
 |---|---:|---|
-| `VITE_API_BASE_URL` | Yes outside local development | Public Render API origin, without a trailing slash |
+| `VITE_API_URL` | Yes outside local development | Public Render API origin, without a trailing slash (the executable frontend reads this exact name) |
 | `VITE_CLERK_PUBLISHABLE_KEY` | Yes | Clerk publishable key; client-visible by design but still configured per environment |
 
 `frontend/vercel.json` preserves SPA deep links and adds browser security
@@ -141,6 +141,12 @@ npm run dev
 
 Then request `http://127.0.0.1:8000/health`, open the Vite URL, and confirm
 the browser console has no blocked CORS request or service-worker error.
+
+The Vercel build should expose `VITE_API_URL` and
+`VITE_CLERK_PUBLISHABLE_KEY` in the same deployment environment. A similarly
+named variable such as `VITE_API_BASE_URL` is ignored by the current client
+and can silently send requests to the localhost fallback, so treat that name
+as a configuration error.
 
 ## Free-tier operating limits
 

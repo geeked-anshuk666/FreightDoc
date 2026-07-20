@@ -11,6 +11,9 @@ synchronization happened.
 ## [Unreleased]
 
 ### Documentation
+- Production release audit (2026-07-21): recorded exactly 20 zero-cost
+  Render/Vercel, Docker, PWA, SEO, CI, and repository-hygiene improvements with
+  evidence and free-tier caveats in `meta_docs/production-release-audit-20.md`.
 - Implementation reconciliation (2026-07-20): the executable backend currently
   uses configuration-driven Groq defaults and owner-scoped Clerk/Neon support.
   Earlier model/stateless references in this planning set remain historical

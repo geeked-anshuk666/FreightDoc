@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 
@@ -120,13 +121,20 @@ class GroqClient:
         last_error: Exception | None = None
         malformed_output = False
         instruction = {"schema": schema.model_json_schema(), "payload": payload}
+        # The SDK has its own default timeout, but keeping the request budget
+        # in application settings prevents a provider call from holding a
+        # worker indefinitely when the free-tier deployment is saturated.
+        request_timeout = max(1.0, float(getattr(get_settings(), "request_timeout_seconds", 8.0)))
         for attempt in range(2):
             try:
-                response = await self.client.chat.completions.create(
-                    model=model,
-                    temperature=0,
-                    response_format={"type": "json_object"},
-                    messages=[{"role": "system", "content": system}, {"role": "user", "content": json.dumps(instruction)}],
+                response = await asyncio.wait_for(
+                    self.client.chat.completions.create(
+                        model=model,
+                        temperature=0,
+                        response_format={"type": "json_object"},
+                        messages=[{"role": "system", "content": system}, {"role": "user", "content": json.dumps(instruction)}],
+                    ),
+                    timeout=request_timeout,
                 )
                 content = response.choices[0].message.content or "{}"
                 result = schema.model_validate_json(content)

@@ -17,6 +17,8 @@ historic events.
 - Render backend and Vercel frontend deployment artifacts for free-tier demos.
 - Public SEO/PWA foundation, accessible responsive navigation, and an
   editorial responsive Shipment Desk.
+- Production release audit with exactly 20 zero-cost deployment, PWA, SEO,
+  CI, and repository-hygiene checks (`meta_docs/production-release-audit-20.md`).
 
 ### Changed
 
@@ -31,3 +33,6 @@ historic events.
 - Original uploaded document bytes are never persisted; Clerk profile data and
   session/OAuth tokens are not stored by default.
 - Uploads are limited to 15 MiB per file, 40 MiB per request, and 10 files.
+- Vercel now sends baseline browser security headers and explicit cache policy;
+  service-worker/HTML entry points are revalidated while hashed assets remain
+  immutable.

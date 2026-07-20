@@ -211,7 +211,7 @@ export default function ShipmentDesk() {
                 <div className="desk-upload-rules"><strong>Intake limits</strong><span>15 MiB per file</span><span>40 MiB per selection</span><span>Up to 10 files</span><small>Original bytes are not retained after secure extraction. Never upload a password-protected or unrelated document.</small></div>
               </div>
               {fileNotice && <p className="desk-file-notice" role="alert">{fileNotice}</p>}
-              {files.length > 0 && <ul className="desk-file-list" aria-label="Locally queued documents">{files.map((file, index) => <li key={`${file.name}-${file.lastModified}-${index}`}><span><b>{file.name}</b><small>{formatBytes(file.size)} · queued locally</small></span><button type="button" onClick={() => setFiles((current) => current.filter((_, fileIndex) => fileIndex !== index))}>Remove</button></li>)}</ul>}
+              {files.length > 0 && <ul className="desk-file-list" aria-label="Locally queued documents">{files.map((file, index) => <li key={`${file.name}-${file.lastModified}-${index}`}><span><b>{file.name}</b><small>{formatBytes(file.size)} · queued locally</small></span><button type="button" aria-label={`Remove ${file.name}`} onClick={() => setFiles((current) => current.filter((_, fileIndex) => fileIndex !== index))}>Remove</button></li>)}</ul>}
               <p className="desk-file-summary">{files.length} of {MAX_FILES} files selected · {formatBytes(totalFileBytes)} of 40 MiB</p>
             </section>
 

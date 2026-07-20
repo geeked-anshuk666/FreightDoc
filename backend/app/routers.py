@@ -105,6 +105,7 @@ def ai_error(
     status_code, retryable = _ERROR_CONTRACTS[code]
     safe_stage = _safe_stage(getattr(exc, "stage", None), stage)
     safe_request_id = getattr(exc, "request_id", None) or request_id
+    headers = {"Retry-After": "5"} if code == "AI_RATE_LIMITED" else None
     return HTTPException(
         status_code=status_code,
         detail={
@@ -114,6 +115,7 @@ def ai_error(
             "request_id": safe_request_id,
             "retryable": retryable,
         },
+        headers=headers,
     )
 
 
@@ -535,7 +537,8 @@ async def apply_document_suggestions(
     selected = list(dict.fromkeys(payload.fields))
     missing = [field for field in selected if field not in (document.normalized_fields or {})]
     if missing:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"code": "SUGGESTION_UNAVAILABLE", "message": f"This document does not contain selectable suggestions for: {', '.join(missing)}."})
+        message = "This document does not contain selectable suggestions for: " + ", ".join(missing) + "."
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"code": "SUGGESTION_UNAVAILABLE", "message": message})
     updates = {field: document.normalized_fields[field] for field in selected}
     try:
         # Validates types/control characters without demanding a complete draft.

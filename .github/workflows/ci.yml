@@ -48,6 +48,16 @@ jobs:
         run: npm ci
       - name: Build Vite application
         run: npm run build
+      - name: Verify PWA release artefacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s dist/index.html
+          test -s dist/manifest.webmanifest
+          test -s dist/sw.js
+          test -s dist/offline.html
+          grep -q 'rel="manifest"' dist/index.html
+          grep -q 'denylist' dist/sw.js
 
   repository-hygiene:
     name: Repository hygiene
@@ -60,8 +70,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if git ls-files | grep -E '(^|/)\.env($|\.)'; then
-            echo 'Environment files must not be tracked.' >&2
+          if git ls-files | grep -E '(^|/)\.env$|(^|/)\.env\.(local|production|development|test)$'; then
+            echo 'Runtime environment files must not be tracked; .env.example templates are allowed.' >&2
             exit 1
           fi
           if git grep -n -I -E '(gsk_[A-Za-z0-9_-]{16,}|npg_[A-Za-z0-9_-]{16,}|sk_(live|test)_[A-Za-z0-9_-]{16,}|BEGIN (RSA|EC|OPENSSH) PRIVATE KEY)' -- .; then

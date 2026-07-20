@@ -15,11 +15,12 @@ from dataclasses import dataclass
 import httpx
 import jwt
 from fastapi import Depends, HTTPException, Request, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+import fastapi.security as fastapi_security
+from fastapi.security import HTTPAuthorizationCredentials
 
 from app.config import Settings, get_settings
 
-_bearer = HTTPBearer(auto_error=False)
+_bearer = fastapi_security.HTTPBearer(auto_error=False)
 
 
 @dataclass(frozen=True)
@@ -82,7 +83,7 @@ async def require_current_user(
             status.HTTP_503_SERVICE_UNAVAILABLE,
         )
     if credentials is None or credentials.scheme.lower() != "bearer":
-        raise _auth_error("AUTH_REQUIRED", "A valid Clerk bearer token is required.", status.HTTP_401_UNAUTHORIZED)
+        raise _auth_error("AUTH_REQUIRED", "A valid Clerk authorization credential is required.", status.HTTP_401_UNAUTHORIZED)
 
     token = credentials.credentials
     try:

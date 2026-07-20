@@ -17,14 +17,24 @@ from app.config import get_settings
 
 
 class InMemoryRateLimiter:
+    # A client-controlled address/bucket pair must not be able to grow this
+    # process-local map without bound.  This is intentionally a small
+    # free-tier guard, not a replacement for an edge/WAF limiter.
+    _MAX_KEYS = 10_000
+
     def __init__(self) -> None:
         self._events: dict[str, deque[float]] = defaultdict(deque)
         self._lock = asyncio.Lock()
 
     async def check(self, key: str, limit: int) -> None:
         now = time.monotonic()
-        window = get_settings().rate_limit_window_seconds
+        window = max(1, get_settings().rate_limit_window_seconds)
         async with self._lock:
+            if key not in self._events and len(self._events) >= self._MAX_KEYS:
+                # Dicts preserve insertion order. Evicting one oldest bucket
+                # keeps memory bounded while allowing the active key to be
+                # tracked normally; a subsequent request can re-create it.
+                self._events.pop(next(iter(self._events)), None)
             timestamps = self._events[key]
             cutoff = now - window
             while timestamps and timestamps[0] <= cutoff:
