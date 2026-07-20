@@ -1,1 +1,1 @@
-{"scripts":{"dev":"vite","build":"vite build"},"dependencies":{"@clerk/clerk-js":"^6.25.5","@clerk/react":"latest","@vitejs/plugin-react":"latest","jszip":"latest","react":"latest","react-dom":"latest","three":"^0.185.1","vite":"latest","vite-plugin-pwa":"latest"}}
+{"scripts":{"dev":"vite","build":"vite build"},"dependencies":{"@clerk/clerk-js":"^6.25.5","@clerk/react":"latest","@vitejs/plugin-react":"latest","gsap":"^3.15.0","jszip":"latest","react":"latest","react-dom":"latest","three":"^0.185.1","vite":"latest","vite-plugin-pwa":"latest"}}

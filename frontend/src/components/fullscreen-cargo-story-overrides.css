@@ -1,0 +1,6 @@
+/* GSAP owns the pin. A second CSS sticky pin causes duplicate spacers and
+   leaves empty viewport states during a scrubbed timeline. */
+.cargo-story__stage {
+  position: relative;
+  top: auto;
+}
