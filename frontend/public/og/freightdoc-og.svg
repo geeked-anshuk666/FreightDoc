@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs><linearGradient id="sky" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0a2a39"/><stop offset=".54" stop-color="#2e8da4"/><stop offset="1" stop-color="#b7e5e8"/></linearGradient><linearGradient id="cargo" x1="0" x2="1"><stop stop-color="#f06432"/><stop offset="1" stop-color="#bd3f25"/></linearGradient></defs>
+  <rect width="1200" height="630" fill="url(#sky)"/>
+  <path d="M0 464h1200v166H0z" fill="#091923" opacity=".88"/>
+  <path d="M0 144h1200M0 280h1200" stroke="#dfffff" stroke-opacity=".17"/>
+  <text x="70" y="108" fill="#f8fbf7" font-family="Arial, Helvetica, sans-serif" font-size="45" font-weight="800" letter-spacing="-4">FREIGHT<tspan fill="#f06432">DOC</tspan></text>
+  <text x="70" y="245" fill="#f8fbf7" font-family="Arial, Helvetica, sans-serif" font-size="102" font-weight="800" letter-spacing="-8">MOVE TRADE</text>
+  <text x="70" y="335" fill="#b7e5e8" font-family="Arial, Helvetica, sans-serif" font-size="82" font-weight="800" letter-spacing="-7">WITH CERTAINTY.</text>
+  <text x="74" y="400" fill="#e4f5f4" font-family="Arial, Helvetica, sans-serif" font-size="27">Reviewable export documentation before a shipment moves.</text>
+  <g transform="translate(730 122) rotate(-6)"><rect width="370" height="180" fill="url(#cargo)"/><path d="M22 0v180M52 0v180M82 0v180M112 0v180M142 0v180M172 0v180M202 0v180M232 0v180M262 0v180M292 0v180M322 0v180M352 0v180" stroke="#74291f" stroke-width="5" opacity=".55"/><path d="M0 180l45 35h370l-45-35z" fill="#7c2b20"/></g>
+  <g transform="translate(650 326)"><rect width="430" height="155" fill="#17688b"/><path d="M20 0v155M52 0v155M84 0v155M116 0v155M148 0v155M180 0v155M212 0v155M244 0v155M276 0v155M308 0v155M340 0v155M372 0v155M404 0v155" stroke="#0a3b50" stroke-width="5" opacity=".72"/><path d="M0 155l45 34h430l-45-34z" fill="#0c4055"/></g>
+  <path d="M690 520h390l-42 55H726z" fill="#263f4a"/><path d="M715 575h320l-34 35H749z" fill="#081923"/>
+</svg>

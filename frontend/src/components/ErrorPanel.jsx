@@ -1,0 +1,1 @@
+export default function ErrorPanel({errors,acknowledged,onAcknowledge}){return errors.length?<section className="critical"><h2>Critical issues</h2>{errors.map((e,i)=><p key={i}>{e.issue} Fix: {e.fix}</p>)}{!acknowledged&&<button onClick={onAcknowledge}>Acknowledge and enable download</button>}</section>:null}

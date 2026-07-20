@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /how-it-works
+Allow: /supported-corridors
+Disallow: /api/
+Disallow: /sign-in
+Disallow: /sign-up
+
+# Add a host-specific sitemap URL during Vercel deployment after VITE_PUBLIC_SITE_URL is set.
