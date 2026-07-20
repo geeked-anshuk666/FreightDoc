@@ -34,6 +34,15 @@ async def request_correlation(request: Request, call_next):
         )
     response = await call_next(request)
     response.headers["X-Request-ID"] = request.state.request_id
+    # The API serves JSON/PDF data only; lock down browser behaviour even when
+    # it is accessed directly rather than through the Vercel application.
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    response.headers.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'")
+    if request.url.scheme == "https":
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
     logger.info("request_id=%s method=%s path=%s status=%s", request.state.request_id, request.method, request.url.path, response.status_code)
     return response
 
