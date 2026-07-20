@@ -20,9 +20,11 @@ target_metadata = Base.metadata
 
 
 def _url() -> str:
-    value = os.getenv("DATABASE_URL")
+    # Runtime API traffic can use Neon PgBouncer, but schema migrations need a
+    # direct endpoint because Alembic uses session-dependent DDL operations.
+    value = os.getenv("MIGRATIONS_DATABASE_URL") or os.getenv("DATABASE_URL")
     if not value:
-        raise RuntimeError("DATABASE_URL must be configured before running Alembic migrations")
+        raise RuntimeError("MIGRATIONS_DATABASE_URL or DATABASE_URL must be configured before running Alembic migrations")
     if value.startswith("postgresql://"):
         value = value.replace("postgresql://", "postgresql+asyncpg://", 1)
     url = make_url(value)

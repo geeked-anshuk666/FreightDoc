@@ -52,6 +52,7 @@ uses the `backend/` directory as the Docker build context and
 | `GROQ_API_KEY` | Yes for AI pipeline calls | Server-side structured-output provider key |
 | `ALLOWED_ORIGINS` | Yes | Comma-separated, exact Vercel production/preview origins allowed by CORS |
 | `DATABASE_URL` | Required when owner-scoped persistence is enabled | Neon pooled Postgres connection URL |
+| `MIGRATIONS_DATABASE_URL` | Required for controlled schema releases | Neon direct (non-pooled) Postgres URL; use only for Alembic |
 | `CLERK_JWKS_URL` | Required when protected API routes are enabled | Clerk JWKS endpoint used to verify tokens |
 | `CLERK_ISSUER` | Required when protected API routes are enabled | Expected Clerk token issuer |
 | `CLERK_AUDIENCE` | Optional, instance-dependent | Expected token audience when configured in Clerk |
@@ -76,8 +77,9 @@ cd backend
 alembic upgrade head
 ```
 
-Use the same repository revision and `DATABASE_URL` as the service. A failed
-migration is a release blocker: restore the previous application revision or
+Use the same repository revision and `MIGRATIONS_DATABASE_URL` as the release
+job. Runtime application processes should continue to use pooled
+`DATABASE_URL`. A failed migration is a release blocker: restore the previous application revision or
 perform an intentional forward repair; do not delete Neon data to recover.
 
 ### Verify and roll back
