@@ -225,6 +225,11 @@ class ShipmentSummary(BaseModel):
     id: str
     status: str
     title: str | None
+    document_count: int = 0
+    latest_dossier_id: str | None = None
+    readiness_score: int | None = Field(default=None, ge=0, le=100)
+    blocker_count: int = Field(default=0, ge=0)
+    warning_count: int = Field(default=0, ge=0)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -237,6 +242,32 @@ class ShipmentDetail(ShipmentSummary):
 class ShipmentPage(BaseModel):
     items: list[ShipmentSummary]
     next_cursor: str | None = None
+
+
+class ShipmentStatusUpdate(BaseModel):
+    """A deliberate user lifecycle action; server-side transition checks apply."""
+
+    model_config = ConfigDict(extra="forbid")
+    status: Literal["processing", "needs_review", "review_ready", "archived"]
+
+
+class SuggestionApplicationRequest(BaseModel):
+    """Fields a user explicitly chose from one document's extracted suggestions."""
+
+    model_config = ConfigDict(extra="forbid")
+    fields: list[Literal[
+        "product_name", "product_description", "origin_country", "destination_country",
+        "quantity", "declared_value", "currency", "exporter_name", "importer_name",
+    ]] = Field(min_length=1, max_length=9)
+
+
+class ShipmentReview(BaseModel):
+    shipment: ShipmentDetail
+    documents: list["IntakeDocumentResponse"] = Field(default_factory=list)
+    latest_dossier: "DossierSummary | None" = None
+    next_action: str
+    blockers: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class ExtractionFinding(BaseModel):

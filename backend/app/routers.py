@@ -27,7 +27,10 @@ from app.models import (
     ShipmentDraftRequest,
     ShipmentPage,
     ShipmentRequest,
+    ShipmentReview,
     ShipmentSummary,
+    ShipmentStatusUpdate,
+    SuggestionApplicationRequest,
     TradePartyRequest,
     TradePartyResponse,
     ValidateRequest,
@@ -40,6 +43,7 @@ from app.services.groq_client import GroqClient
 from app.services.pdf_generator import render_complete_dossier
 from app.services.pipeline import PipelineService
 from app.services.upload_policy import MAX_FILE_BYTES, MAX_REQUEST_BYTES, DocumentSafetyError
+from app.services.shipment_workflow import ShipmentStatus, transition_error
 
 router = APIRouter(prefix="/api")
 
@@ -76,11 +80,31 @@ async def get_repository(
     return FreightRepository(db, user.owner_id)
 
 
-def _shipment_summary(shipment: Shipment) -> ShipmentSummary:
+def _package_health(package) -> tuple[int | None, int, int]:
+    if package is None:
+        return None, 0, 0
+    validation = package.validation or {}
+    findings = validation.get("errors", [])
+    return (
+        validation.get("compliance_score"),
+        sum(1 for finding in findings if finding.get("severity") == "critical"),
+        sum(1 for finding in findings if finding.get("severity") == "warning"),
+    )
+
+
+def _shipment_summary(shipment: Shipment, summary_data: dict[str, Any] | None = None) -> ShipmentSummary:
+    summary_data = summary_data or {}
+    package = summary_data.get("latest_package")
+    readiness_score, blocker_count, warning_count = _package_health(package)
     return ShipmentSummary(
         id=shipment.id,
         status=shipment.status,
         title=shipment.title,
+        document_count=int(summary_data.get("document_count", 0)),
+        latest_dossier_id=package.id if package else None,
+        readiness_score=readiness_score,
+        blocker_count=blocker_count,
+        warning_count=warning_count,
         created_at=shipment.created_at,
         updated_at=shipment.updated_at,
     )
@@ -118,6 +142,32 @@ async def _owner_shipment(repository: FreightRepository, shipment_id: str) -> Sh
     if not shipment:
         raise _not_found("Shipment")
     return shipment
+
+
+def _review_notes(shipment: Shipment, documents, package) -> tuple[str, list[str], list[str]]:
+    blockers: list[str] = []
+    warnings: list[str] = []
+    try:
+        _complete_shipment(shipment)
+    except HTTPException as exc:
+        blockers.append(str(exc.detail.get("message", "Complete required shipment details.")))
+    for document in documents:
+        if document.status != "extracted":
+            warnings.append(f"{document.filename} needs additional extraction review.")
+    if package:
+        _, critical, warning = _package_health(package)
+        for finding in (package.validation or {}).get("errors", []):
+            message = str(finding.get("fix") or finding.get("issue") or "Review this validation finding.")
+            (blockers if finding.get("severity") == "critical" else warnings).append(message)
+        if critical:
+            return "Resolve critical validation findings before preparing a broker review.", blockers, warnings
+        if package.validation.get("ready_to_ship"):
+            return "Dossier is review-ready. Download it or archive the shipment after handoff.", blockers, warnings
+        if warning:
+            return "Review the non-blocking findings before handing off the dossier.", blockers, warnings
+    if blockers:
+        return "Complete the missing shipment details before running the dossier pipeline.", blockers, warnings
+    return "Review extracted suggestions, then prepare a dossier.", blockers, warnings
 
 
 def _complete_shipment(shipment: Shipment) -> ShipmentRequest:
@@ -243,7 +293,8 @@ async def list_shipments(
     rows = await repository.list_shipments(limit + 1, parsed_cursor)
     page_rows, extra = rows[:limit], rows[limit:]
     next_cursor = page_rows[-1].created_at.isoformat() if extra and page_rows[-1].created_at else None
-    return ShipmentPage(items=[_shipment_summary(row) for row in page_rows], next_cursor=next_cursor)
+    summary_data = await repository.shipment_summary_data([row.id for row in page_rows])
+    return ShipmentPage(items=[_shipment_summary(row, summary_data.get(row.id)) for row in page_rows], next_cursor=next_cursor)
 
 
 @router.get("/shipments/{shipment_id}", response_model=ShipmentDetail)
@@ -259,11 +310,53 @@ async def update_shipment(
     repository: Annotated[FreightRepository, Depends(get_repository)],
 ):
     shipment = await _owner_shipment(repository, shipment_id)
+    if shipment.status == ShipmentStatus.ARCHIVED.value:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": "SHIPMENT_ARCHIVED", "message": "Archived shipments cannot be edited."})
     updates = payload.model_dump(exclude_none=True)
     title = updates.pop("title", shipment.title)
     merged = {**shipment.payload, **updates}
     shipment = await repository.update_shipment(shipment, merged, title, _request_id(request))
     return _shipment_detail(shipment)
+
+
+@router.get("/shipments/{shipment_id}/review", response_model=ShipmentReview)
+async def shipment_review(
+    shipment_id: str,
+    repository: Annotated[FreightRepository, Depends(get_repository)],
+):
+    """Review screen data with document suggestions kept separate from shipment facts."""
+    shipment = await _owner_shipment(repository, shipment_id)
+    documents = await repository.list_documents(shipment)
+    package = await repository.latest_package(shipment)
+    next_action, blockers, warnings = _review_notes(shipment, documents, package)
+    return ShipmentReview(
+        shipment=_shipment_detail(shipment),
+        documents=[_document_response(document) for document in documents],
+        latest_dossier=_dossier_summary(package) if package else None,
+        next_action=next_action,
+        blockers=blockers,
+        warnings=warnings,
+    )
+
+
+@router.patch("/shipments/{shipment_id}/status", response_model=ShipmentDetail)
+async def change_shipment_status(
+    shipment_id: str,
+    payload: ShipmentStatusUpdate,
+    request: Request,
+    repository: Annotated[FreightRepository, Depends(get_repository)],
+):
+    shipment = await _owner_shipment(repository, shipment_id)
+    problem = transition_error(shipment.status, payload.status)
+    if problem:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": "INVALID_STATUS_TRANSITION", "message": problem})
+    if payload.status == ShipmentStatus.PROCESSING.value:
+        _complete_shipment(shipment)
+    if payload.status == ShipmentStatus.REVIEW_READY.value:
+        package = await repository.latest_package(shipment)
+        if not package or not (package.validation or {}).get("ready_to_ship"):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": "REVIEW_NOT_READY", "message": "A dossier without critical findings is required before marking a shipment review-ready."})
+    return _shipment_detail(await repository.set_shipment_status(shipment, payload.status, _request_id(request)))
 
 
 @router.post("/shipments/{shipment_id}/review", response_model=ShipmentDetail)
@@ -273,6 +366,9 @@ async def submit_review(
     repository: Annotated[FreightRepository, Depends(get_repository)],
 ):
     shipment = await _owner_shipment(repository, shipment_id)
+    problem = transition_error(shipment.status, ShipmentStatus.PROCESSING.value)
+    if problem:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": "INVALID_STATUS_TRANSITION", "message": problem})
     _complete_shipment(shipment)
     return _shipment_detail(await repository.submit_for_review(shipment, _request_id(request)))
 
@@ -363,6 +459,38 @@ async def list_documents(shipment_id: str, repository: Annotated[FreightReposito
     return IntakeDocumentList(items=[_document_response(document) for document in await repository.list_documents(shipment)])
 
 
+@router.post("/shipments/{shipment_id}/documents/{document_id}/apply-suggestions", response_model=ShipmentDetail)
+async def apply_document_suggestions(
+    shipment_id: str,
+    document_id: str,
+    payload: SuggestionApplicationRequest,
+    request: Request,
+    repository: Annotated[FreightRepository, Depends(get_repository)],
+):
+    """Apply only the fields explicitly selected by the user from extracted data."""
+    shipment = await _owner_shipment(repository, shipment_id)
+    if shipment.status == ShipmentStatus.ARCHIVED.value:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": "SHIPMENT_ARCHIVED", "message": "Archived shipments cannot be edited."})
+    document = await repository.get_document(shipment, document_id)
+    if not document:
+        raise _not_found("Document")
+    selected = list(dict.fromkeys(payload.fields))
+    missing = [field for field in selected if field not in (document.normalized_fields or {})]
+    if missing:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"code": "SUGGESTION_UNAVAILABLE", "message": f"This document does not contain selectable suggestions for: {', '.join(missing)}."})
+    updates = {field: document.normalized_fields[field] for field in selected}
+    try:
+        # Validates types/control characters without demanding a complete draft.
+        ShipmentDraftRequest.model_validate(updates)
+    except PydanticValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"code": "SUGGESTION_INVALID", "message": "The selected extraction suggestion cannot be safely applied."}) from exc
+    shipment = await repository.update_shipment(shipment, {**shipment.payload, **updates}, shipment.title, _request_id(request))
+    await repository.audit("document.suggestions_applied", "document", document.id, _request_id(request), {"shipment_id": shipment.id, "fields": selected})
+    await repository.session.commit()
+    await repository.session.refresh(shipment)
+    return _shipment_detail(shipment)
+
+
 @router.delete("/shipments/{shipment_id}/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_document(
     shipment_id: str,
@@ -432,6 +560,13 @@ async def generate_dossier(
     repository: Annotated[FreightRepository, Depends(get_repository)],
 ):
     shipment = await _owner_shipment(repository, shipment_id)
+    if shipment.status == ShipmentStatus.ARCHIVED.value:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": "SHIPMENT_ARCHIVED", "message": "Archived shipments cannot generate a dossier."})
+    if shipment.status != ShipmentStatus.PROCESSING.value:
+        problem = transition_error(shipment.status, ShipmentStatus.PROCESSING.value)
+        if problem:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": "INVALID_STATUS_TRANSITION", "message": problem})
+        shipment = await repository.set_shipment_status(shipment, ShipmentStatus.PROCESSING.value, _request_id(request))
     complete = _complete_shipment(shipment)
     try:
         result = await PipelineService().run(complete, _request_id(request) or "saved-dossier")
@@ -463,8 +598,8 @@ async def generate_dossier(
         },
         _request_id(request),
     )
-    shipment.status = "dossier_generated"
-    await repository.session.commit()
+    outcome = ShipmentStatus.REVIEW_READY.value if result.validation.ready_to_ship else ShipmentStatus.NEEDS_REVIEW.value
+    shipment = await repository.set_shipment_status(shipment, outcome, _request_id(request))
     return _dossier_detail(package)
 
 
@@ -488,6 +623,18 @@ def _dossier_detail(package) -> DossierDetail:
     )
 
 
+def _dossier_summary(package) -> DossierSummary:
+    validation = package.validation or {}
+    return DossierSummary(
+        id=package.id,
+        shipment_id=package.shipment_id,
+        readiness_score=int(validation.get("compliance_score", 0)),
+        ready_to_ship=bool(validation.get("ready_to_ship", False)),
+        created_at=package.created_at,
+        legal_disclaimer=package.legal_disclaimer,
+    )
+
+
 @router.get("/shipments/{shipment_id}/dossiers/latest", response_model=DossierDetail)
 async def latest_dossier(shipment_id: str, repository: Annotated[FreightRepository, Depends(get_repository)]):
     shipment = await _owner_shipment(repository, shipment_id)
@@ -495,6 +642,16 @@ async def latest_dossier(shipment_id: str, repository: Annotated[FreightReposito
     if not package:
         raise _not_found("Dossier")
     return _dossier_detail(package)
+
+
+@router.get("/shipments/{shipment_id}/dossiers", response_model=list[DossierSummary])
+async def list_dossiers(
+    shipment_id: str,
+    repository: Annotated[FreightRepository, Depends(get_repository)],
+    limit: int = Query(default=20, ge=1, le=50),
+):
+    shipment = await _owner_shipment(repository, shipment_id)
+    return [_dossier_summary(package) for package in await repository.list_packages(shipment, limit)]
 
 
 @router.get("/shipments/{shipment_id}/dossiers/{package_id}", response_model=DossierDetail)

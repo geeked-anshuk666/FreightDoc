@@ -6,6 +6,7 @@ import PageMetadata from './components/PageMetadata';
 import PublicInformationPage from './components/PublicInformationPage';
 import PwaStatus from './components/PwaStatus';
 import ShipmentDesk from './components/ShipmentDesk';
+import ShipmentDashboard from './components/ShipmentDashboard';
 import './components/cargo-story-resilience.css';
 
 function ShipmentWorkspace() {
@@ -38,10 +39,10 @@ export default function App() {
       <Show when="loading"><PageMetadata noIndex title="Loading workspace" description="Loading the FreightDoc shipment workspace." /><AuthExperience mode="sign-in" loading /></Show>
       <Show when="signed-out"><PageMetadata noIndex title="Sign in" description="Access the FreightDoc shipment workspace." /><AuthExperience mode="sign-in" /></Show>
       <Show when="signed-in">
-        <PageMetadata noIndex title="Shipment workspace" description="Prepare a reviewable export-documentation package in FreightDoc." />
+        <PageMetadata noIndex title={path === '/dashboard' ? 'My shipments' : 'Shipment workspace'} description="Prepare a reviewable export-documentation package in FreightDoc." />
         <main className="freight-platform">
           <MainNavigation />
-          <ShipmentWorkspace />
+          {path === '/dashboard' ? <ShipmentDashboard /> : <ShipmentWorkspace />}
         </main>
       </Show>
     </>

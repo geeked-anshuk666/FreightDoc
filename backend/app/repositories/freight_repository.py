@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db_models import AuditEvent, GeneratedPackage, IntakeDocument, Shipment, TradeParty, ValidationFinding
@@ -57,6 +57,28 @@ class FreightRepository:
             query = query.where(Shipment.created_at < cursor)
         return list((await self.session.execute(query)).scalars())
 
+    async def shipment_summary_data(self, shipment_ids: list[str]) -> dict[str, dict[str, Any]]:
+        """Fetch dashboard counts in bulk, without relaxing owner-scoped shipment reads."""
+        if not shipment_ids:
+            return {}
+        document_rows = await self.session.execute(
+            select(IntakeDocument.shipment_id, func.count(IntakeDocument.id))
+            .where(IntakeDocument.shipment_id.in_(shipment_ids))
+            .group_by(IntakeDocument.shipment_id)
+        )
+        package_rows = await self.session.execute(
+            select(GeneratedPackage)
+            .where(GeneratedPackage.shipment_id.in_(shipment_ids))
+            .order_by(GeneratedPackage.shipment_id, GeneratedPackage.created_at.desc())
+        )
+        result = {shipment_id: {"document_count": 0, "latest_package": None} for shipment_id in shipment_ids}
+        for shipment_id, count in document_rows:
+            result[shipment_id]["document_count"] = int(count)
+        for package in package_rows.scalars():
+            if result[package.shipment_id]["latest_package"] is None:
+                result[package.shipment_id]["latest_package"] = package
+        return result
+
     async def update_shipment(self, shipment: Shipment, payload: dict[str, Any], title: str | None, request_id: str | None) -> Shipment:
         shipment.payload = payload
         shipment.title = title
@@ -66,9 +88,23 @@ class FreightRepository:
         return shipment
 
     async def submit_for_review(self, shipment: Shipment, request_id: str | None) -> Shipment:
-        shipment.status = "review_submitted"
+        shipment.status = "processing"
         shipment.review_submitted_at = datetime.now().astimezone()
-        await self.audit("shipment.review_submitted", "shipment", shipment.id, request_id)
+        await self.audit("shipment.processing_requested", "shipment", shipment.id, request_id)
+        await self._commit()
+        await self.session.refresh(shipment)
+        return shipment
+
+    async def set_shipment_status(self, shipment: Shipment, new_status: str, request_id: str | None) -> Shipment:
+        previous_status = shipment.status
+        shipment.status = new_status
+        await self.audit(
+            "shipment.status_changed",
+            "shipment",
+            shipment.id,
+            request_id,
+            {"from": previous_status, "to": new_status},
+        )
         await self._commit()
         await self.session.refresh(shipment)
         return shipment
@@ -161,3 +197,12 @@ class FreightRepository:
             .limit(1)
         )
         return (await self.session.execute(statement)).scalar_one_or_none()
+
+    async def list_packages(self, shipment: Shipment, limit: int = 20) -> list[GeneratedPackage]:
+        statement: Select = (
+            select(GeneratedPackage)
+            .where(GeneratedPackage.shipment_id == shipment.id)
+            .order_by(GeneratedPackage.created_at.desc())
+            .limit(limit)
+        )
+        return list((await self.session.execute(statement)).scalars())
