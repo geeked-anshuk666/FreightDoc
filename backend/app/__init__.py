@@ -1,0 +1,1 @@
+"""FreightDoc API package."""

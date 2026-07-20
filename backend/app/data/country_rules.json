@@ -1,0 +1,11 @@
+{
+  "metadata": {"rule_version": "2026.07.18", "effective_date": "2026-07-18", "last_reviewed_at": "2026-07-18", "source_urls": ["https://trade.ec.europa.eu/access-to-markets/en/home", "https://www.trade.gov/"], "disclaimer": "Informational only; verify requirements with a licensed customs broker."},
+  "US-DE": {"required_docs": ["commercial_invoice", "packing_list", "certificate_of_origin", "customs_declaration"], "conditional": {"electronics": ["ce_declaration"], "food": ["phytosanitary_certificate"], "chemicals": ["safety_data_sheet"]}},
+  "US-GB": {"required_docs": ["commercial_invoice", "packing_list", "certificate_of_origin", "customs_declaration"], "conditional": {"electronics": ["ukca_declaration"]}},
+  "US-IN": {"required_docs": ["commercial_invoice", "packing_list", "certificate_of_origin", "customs_declaration"], "conditional": {"electronics": ["bis_compliance_declaration"], "food": ["phytosanitary_certificate"]}},
+  "US-JP": {"required_docs": ["commercial_invoice", "packing_list", "certificate_of_origin", "customs_declaration"], "conditional": {"electronics": ["pse_compliance_declaration"]}},
+  "US-CA": {"required_docs": ["commercial_invoice", "packing_list", "certificate_of_origin", "customs_declaration"], "conditional": {}},
+  "US-AU": {"required_docs": ["commercial_invoice", "packing_list", "certificate_of_origin", "customs_declaration"], "conditional": {"food": ["phytosanitary_certificate"]}},
+  "IN-US": {"required_docs": ["commercial_invoice", "packing_list", "certificate_of_origin", "customs_declaration"], "conditional": {"food": ["fda_prior_notice"], "chemicals": ["safety_data_sheet"]}},
+  "CN-EU": {"required_docs": ["commercial_invoice", "packing_list", "certificate_of_origin", "customs_declaration"], "conditional": {"electronics": ["ce_declaration"], "chemicals": ["safety_data_sheet"]}}
+}
