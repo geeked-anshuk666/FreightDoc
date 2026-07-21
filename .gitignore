@@ -1,12 +1,49 @@
+# Secrets and local configuration (keep committed templates only)
 .env
 .env.*
-backend/.env
-frontend/.env
-frontend/.env.*
-frontend/node_modules/
-frontend/dist/
-backend/.pytest_cache/
-backend/__pycache__/
-backend/.coverage
-backend/venv/
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.venv/
+venv/
+env/
+
+# Node/Vite
+node_modules/
+dist/
+coverage/
+.vite/
+*.tsbuildinfo
+
+# Test, build, and runtime artifacts
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.tox/
+*.log
+*.sqlite3
+*.db
+
+# Private/local material and generated demonstration artifacts
 .private_docs/
+outputs/
+chrome-check/
+*.mp4
+*.webm
+
+# Editor and OS metadata
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

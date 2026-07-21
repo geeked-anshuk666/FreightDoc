@@ -1,42 +1,45 @@
 # FreightDoc
 
-FreightDoc prepares a reviewable export-documentation dossier from a shipment brief.
+FreightDoc prepares a reviewable export-documentation dossier from shipment facts. It is preparation software—not a customs broker, legal adviser, screening authority, carrier, or filing/clearance service—and a human reviewer remains responsible for consequential decisions.
 
-It classifies a product, retrieves tariff evidence, resolves country-specific document requirements, generates structured documents, cross-validates the package, and renders PDFs.
+## What is built
 
-It is an **informational preparation tool**. FreightDoc is not a customs broker, broker-of-record, legal filing service, or guarantee of customs clearance. Low-confidence classifications, fallback tariff evidence, and critical validation findings require human customs-broker review.
+- Deterministic country-rule and document-requirement workflow with provenance and fallback labels.
+- Reviewable shipment facts, revisions, review tasks, quality findings, and audit history.
+- Structured draft documents and PDF dossier exports.
+- Bounded document intake: original upload bytes are processed transiently; only permitted metadata and reviewed facts may persist.
+- Local rules/playbooks/rulings, landed-cost scenarios, operations views, and clearly labelled manual/mock connector surfaces.
 
-## Product surfaces
+## Workflow
 
-| Component | Stack | Responsibility |
-|---|---|---|
-| `frontend/` | React, Vite, PWA, Clerk | public product experience and authenticated shipment workspace |
-| `backend/` | FastAPI, Pydantic, ReportLab | pipeline orchestration, rule engine, source provenance, document/PDF processing |
-| `backend/app/data/country_rules.json` | version-controlled JSON | deterministic document requirements and corridor conditions |
-| `docs/` | Markdown | code-accurate operating, deployment, testing, and product boundaries |
+1. Create a shipment and add facts or safe source documents.
+2. Generate and validate a draft using deterministic rules first.
+3. Review findings and accept, correct, or waive them with a recorded decision.
+4. Export an internally review-ready dossier. Export is not filing or clearance.
 
-The active provider/model is configuration-driven. The current executable backend configuration defaults to Groq; legacy planning documents that name a different runtime model are historical requirements, not a claim about the running service. See [known tradeoffs](docs/known_tradeoffs.md) before making product or compliance claims.
+## Supported corridors
 
-## Supported trade corridors
+US to Germany, UK, India, Japan, Canada, or Australia; India to US; and China to a specified EU member state. `EU` alone is rejected for the China route because a destination country is required. See [known tradeoffs](docs/known_tradeoffs.md).
 
-US→Germany, US→UK, US→India, US→Japan, US→Canada, US→Australia, India→US, and China→a specified EU member state. `EU` alone is intentionally rejected for a China export route because rules and tariff evidence need a real destination country.
+## Architecture and AI boundaries
 
-## Run locally
+The frontend is React/Vite/PWA with Clerk; the API is FastAPI, SQLAlchemy, and ReportLab. Persistence uses Postgres/Neon when configured. Render and Vercel configuration is included for deployment.
 
-### Backend
+The workflow remains usable without an AI key. Runtime suggestions are optional, configured separately (currently Groq-oriented), labelled when unavailable/fallback, and must be accepted by a person. See the [deterministic AI safety contract](docs/deterministic_ai_safety_contract.md).
+
+## Local setup
+
+Prerequisites: Python 3.11+ and a current Node/npm installation.
 
 ```powershell
 cd backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 python run_local.py
 ```
 
-The public health endpoint is `http://127.0.0.1:8000/health`.
-
-### Frontend
+In another terminal:
 
 ```powershell
 cd frontend
@@ -44,32 +47,29 @@ npm ci
 npm run dev
 ```
 
-Set only variable **names** in local environment files. Required values depend on the features exercised:
+The API health check is `http://127.0.0.1:8000/health`. Configure values locally; never commit them. Names are `GROQ_API_KEY`, `AI_PROVIDER`, `AI_MODEL`, `DATABASE_URL`, `MIGRATIONS_DATABASE_URL`, `ALLOWED_ORIGINS`, `CLERK_JWKS_URL`, `CLERK_ISSUER`, optional `CLERK_AUDIENCE`, `REQUEST_TIMEOUT_SECONDS`, and `DOCUMENT_PARSER_TIMEOUT_SECONDS`. The frontend uses `VITE_API_URL` and `VITE_CLERK_PUBLISHABLE_KEY`.
 
-| Backend | Frontend |
-|---|---|
-| `GROQ_API_KEY` | `VITE_API_URL` |
-| `ALLOWED_ORIGINS` | `VITE_CLERK_PUBLISHABLE_KEY` |
-| `DATABASE_URL` when persistence is enabled | |
-| `CLERK_JWKS_URL`, `CLERK_ISSUER`, and optional `CLERK_AUDIENCE` when protected API routes are enabled | |
+### Synthetic demo shipment
 
-Never commit environment files, tokens, database URLs, or original uploaded documents. If a secret was shared outside an approved secret store, rotate it.
+Use only synthetic data for a demo or local test:
 
-## Deployment
+```json
+{
+  "product_name": "Aurora wireless earbuds",
+  "product_description": "Retail-packaged Bluetooth earbuds; synthetic demonstration product.",
+  "origin_country": "US",
+  "destination_country": "DE",
+  "quantity": 500,
+  "declared_value": 25000,
+  "currency": "USD",
+  "exporter_name": "Northstar Demo Goods LLC",
+  "importer_name": "Rhein Demo Retail GmbH"
+}
+```
 
-- **Backend:** Render Free, using [render.yaml](render.yaml) and [backend/Dockerfile](backend/Dockerfile).
-- **Frontend:** Vercel Free with `frontend` configured as its root directory.
-- **Database:** Neon Postgres through an environment-injected `DATABASE_URL`.
+The US-to-Germany electronics path visibly exercises a conditional CE declaration requirement. Do not upload customer records or credentials.
 
-Use the [deployment guide](docs/deployment_guide.md) for dashboard settings, CORS/Clerk configuration, migration discipline, health checks, and rollback steps.
-
-## Privacy and document handling
-
-The owner-scope policy is deliberately narrow: protected routes verify Clerk JWTs and use only the opaque Clerk subject as `owner_id`. FreightDoc does not persist Clerk email, name, avatar, OAuth data, or session tokens by default.
-
-Uploaded trade-document bytes are processed in a bounded temporary scope and must not be placed in logs, a PWA cache, or Postgres. Persist only the metadata and reviewed extraction facts that the product policy explicitly permits. See [troubleshooting](docs/troubleshooting_guide.md) and [known tradeoffs](docs/known_tradeoffs.md).
-
-## Quality checks
+## Tests and deployment
 
 ```powershell
 cd backend
@@ -77,20 +77,16 @@ python -m pytest tests -q
 
 cd ..\frontend
 npm ci
+npm run test
 npm run build
 ```
 
-The GitHub Actions workflow runs the same backend tests, frontend build, and a small tracked-file secret hygiene check. More test depth and release checks are listed in [testing strategy](docs/testing_strategy.md).
+Deploy the API with [Render configuration](render.yaml) and the frontend with Vercel (root directory `frontend`). See the [deployment guide](docs/deployment_guide.md); free tiers may cold-start.
 
-## Documentation map
+## Documentation
 
-- [System overview](docs/system_overview.md)
-- [API reference](docs/api_reference.md)
-- [Deployment guide](docs/deployment_guide.md)
-- [Repository policy](docs/repository_policy.md)
-- [Testing strategy](docs/testing_strategy.md)
-- [Security architecture](docs/security_architecture.md)
-- [Scaling path](docs/scaling_to_1_billion_users.md)
-- [Known tradeoffs](docs/known_tradeoffs.md)
-- [What we skipped and why](docs/what_we_skipped_and_why.md)
-- [Production release audit (20 zero-cost improvements)](meta_docs/production-release-audit-20.md)
+Start at the [documentation index](docs/documentation_index.md). It links the [system overview](docs/system_overview.md), [API reference](docs/api_reference.md), [testing strategy](docs/testing_strategy.md), [repository policy](docs/repository_policy.md), and [release checklist](docs/release_checklist.md).
+
+## Build Week disclosure
+
+Development-tool use is distinct from runtime AI. The repository records only verified claims in the [AI usage disclosure](docs/ai_usage_disclosure.md). Before submission, complete its evidence checklist and place the Codex `/feedback` session ID in the submission form—not in a public transcript.

@@ -55,6 +55,16 @@ The CI hygiene job catches tracked environment files and a narrow set of
 common high-risk token prefixes. It is a backstop, not permission to skip
 human review or a dedicated secret scanner in a larger organization.
 
+## Public release classes
+
+Public material may include source, deployment configuration, committed example
+environment files, and synthetic fixtures. Keep customer records, original
+uploads, private submission evidence, recordings, exports, browser profiles,
+and secrets out of Git. Never delete a file merely because it overlaps another
+document: identify its owner/history and obtain review first. An ignore rule
+does not remove an already tracked secret; rotate it and use a separate,
+reviewed remediation.
+
 ## Logical history reconstruction
 
 The initial Git history is a dependency-ordered reconstruction of the current

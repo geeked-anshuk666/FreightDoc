@@ -1,29 +1,7 @@
-# FreightDoc — 07_HACKATHON_FIT.md
+# FreightDoc — hackathon fit
 
-## Track
-Work & Productivity.
+FreightDoc fits a work/productivity workflow by turning a fragmented document-preparation task into reviewable facts, deterministic requirements, findings, and an exportable dossier.
 
-## Required technologies, used correctly (not bolted on)
-- **Codex**: used throughout the build (not just at the start) — scaffolding
-  the FastAPI backend, writing the rule engine, writing the validation
-  prompt logic, writing the PDF renderer, iterating on the frontend.
-- **GPT-5.6**: used at runtime for the three reasoning-heavy steps
-  (classification, generation, cross-validation) where a rule engine alone
-  cannot do the job — while everything that *can* be deterministic (tariff
-  lookup, document-requirements matrix, PDF rendering) deliberately is not
-  routed through the model. This demonstrates judgment, not "AI for AI's
-  sake," which is explicitly what the judging rubric rewards.
+The Build Week requirement to use Codex and GPT-5.6 is a development-process claim. Before submission, verify both uses from permitted local records, capture `/feedback`, and state only the exact tool/model/effort details that those records display. Runtime AI is optional and separately configured; deterministic rules and human review remain available without a provider key.
 
-## Judging rubric alignment
-| Criterion | How FreightDoc scores |
-|---|---|
-| Technological Implementation | Multi-step agentic pipeline with reasoning + deterministic stages, integrating 3 free public trade-data APIs |
-| Design | Clear pipeline-progress UI, color-coded errors, before/after compliance score |
-| Potential Impact | Real, quantifiable financial pain ($10K+ fines, week-long holds) for a large underserved segment |
-| Quality of Idea | The cross-validation insight is the differentiator vs. every "AI fills a template" competitor |
-
-## Submission requirements checklist alignment
-- Session ID captured via `/feedback` before closing the primary Codex thread.
-- README written by hand (not AI-generated prose) documenting exactly how
-  Codex and GPT-5.6 were used at each stage.
-- Repo shared appropriately if private.
+See [submission notes](00_MASTER.md) and [AI usage disclosure](../docs/ai_usage_disclosure.md).

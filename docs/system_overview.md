@@ -1,24 +1,16 @@
 # System overview
 
-FreightDoc turns a shipment brief into a reviewable export-documentation
-dossier. A user supplies the product, valid country corridor, quantity, value,
-currency, and commercial party names. The system then:
+FreightDoc creates a reviewable export-documentation dossier from shipment facts. It is informational preparation software, not a broker, filing, clearance, sanctions-screening, or legal service. Human review is required for consequential decisions.
 
-1. classifies the product into an HS-code suggestion with confidence;
-2. retrieves tariff/commercial evidence from the appropriate deterministic
-   source adapters, labelling any fallback;
-3. resolves required documents from versioned `country_rules.json` rather than
-   asking a model to remember law;
-4. generates structured document data;
-5. cross-validates quantities, values, missing documents, and destination
-   requirements; and
-6. renders downloadable PDFs.
+## Product flow
 
-The app separates determinate work (rules, source retrieval, PDF rendering)
-from AI work (classification, document filling, cross-validation). Every
-result includes a request ID, source/rules provenance, and a broker-review
-disclaimer. UN Comtrade is trade context, not a live duty decision.
+1. A signed-in owner creates a shipment and optionally submits bounded source documents.
+2. Deterministic rules resolve the supported corridor and required documents; classification/tariff evidence carries source or fallback labels.
+3. The product generates draft documents, validation findings, and a PDF dossier.
+4. Owners review facts, revisions, quality findings, and suggestions; acceptance/rejection/waiver is attributable.
 
-The public product pages are crawlable; the Clerk-authenticated workspace is
-private/noindex. Saved workspaces use the verified Clerk subject as an owner
-scope and retain no Clerk profile data or original upload bytes.
+The `/api/v1` surface adds canonical records, revisions, review tasks, quality findings, local rules/playbooks/rulings, scenarios, operations, and governance. Connector and regulated-action surfaces are manual/mock only unless an approved live integration is explicitly configured.
+
+## Data and safety
+
+Workspace data is owner-scoped with the opaque Clerk subject. Original upload bytes are processed transiently and must not be logged, cached, or persisted. Deterministic processing works without a provider key; optional runtime AI suggestions cannot make authoritative decisions. See the [safety contract](deterministic_ai_safety_contract.md), [security architecture](security_architecture.md), and [known tradeoffs](known_tradeoffs.md).

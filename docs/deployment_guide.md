@@ -49,7 +49,7 @@ uses the `backend/` directory as the Docker build context and
 
 | Variable | Required | Purpose |
 |---|---:|---|
-| `GROQ_API_KEY` | Yes for AI pipeline calls | Server-side structured-output provider key |
+| `GROQ_API_KEY` | Optional | Server-side structured-output provider key; deterministic workflow works without it |
 | `ALLOWED_ORIGINS` | Yes | Comma-separated, exact Vercel production/preview origins allowed by CORS |
 | `DATABASE_URL` | Required when owner-scoped persistence is enabled | Neon pooled Postgres connection URL |
 | `MIGRATIONS_DATABASE_URL` | Required for controlled schema releases | Neon direct (non-pooled) Postgres URL; use only for Alembic |
