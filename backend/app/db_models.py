@@ -41,6 +41,26 @@ class Shipment(Timestamped, Base):
     payload: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     review_submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Nullable during rollout: legacy personal workspaces remain owner scoped.
+    organization_id: Mapped[str | None] = mapped_column(String(36), index=True, nullable=True)
+    canonical_revision_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    revision_number: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+
+class Organization(Timestamped, Base):
+    __tablename__ = "organizations"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_id)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    personal_owner_id: Mapped[str | None] = mapped_column(String(128), unique=True, nullable=True)
+
+
+class OrganizationMembership(Timestamped, Base):
+    __tablename__ = "organization_memberships"
+    __table_args__ = (Index("ix_org_membership_owner_org", "owner_id", "organization_id", unique=True),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_id)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    owner_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    role: Mapped[str] = mapped_column(String(32), default="owner", nullable=False)
 
 
 class TradeParty(Timestamped, Base):
@@ -76,6 +96,8 @@ class IntakeDocument(Timestamped, Base):
     extraction_error_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
     original_deleted: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     parser_provenance: Mapped[str] = mapped_column(String(160), default="native", nullable=False)
+    sha256: Mapped[str | None] = mapped_column(String(64), index=True, nullable=True)
+    retention_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
 
 
 class GeneratedPackage(Timestamped, Base):
@@ -127,3 +149,83 @@ class AuditEvent(Base):
     # Deliberately bounded metadata: no document content / credentials / PII.
     metadata_json: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    event_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    previous_event_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+
+class ShipmentRevision(Base):
+    __tablename__ = "shipment_revisions"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_id)
+    shipment_id: Mapped[str] = mapped_column(ForeignKey("shipments.id", ondelete="CASCADE"), index=True)
+    revision_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    payload: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    actor_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    reason: Mapped[str | None] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class TradeFact(Base):
+    __tablename__ = "trade_facts"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_id)
+    shipment_id: Mapped[str] = mapped_column(ForeignKey("shipments.id", ondelete="CASCADE"), index=True)
+    field: Mapped[str] = mapped_column(String(120), nullable=False)
+    value: Mapped[dict] = mapped_column(JSON, nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
+    provenance: Mapped[str] = mapped_column(String(160), default="manual", nullable=False)
+    status: Mapped[str] = mapped_column(String(24), default="accepted", nullable=False)
+    revision_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class ReviewTask(Base):
+    __tablename__ = "review_tasks"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_id)
+    shipment_id: Mapped[str] = mapped_column(ForeignKey("shipments.id", ondelete="CASCADE"), index=True)
+    status: Mapped[str] = mapped_column(String(24), default="open", nullable=False)
+    kind: Mapped[str] = mapped_column(String(80), nullable=False)
+    reason: Mapped[str] = mapped_column(String(1000), nullable=False)
+    maker_id: Mapped[str | None] = mapped_column(String(128))
+    assignee_id: Mapped[str | None] = mapped_column(String(128))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ReviewDecision(Base):
+    __tablename__ = "review_decisions"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_id)
+    task_id: Mapped[str] = mapped_column(ForeignKey("review_tasks.id", ondelete="CASCADE"), index=True)
+    actor_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    decision: Mapped[str] = mapped_column(String(24), nullable=False)
+    reason: Mapped[str] = mapped_column(String(1000), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class AiSuggestion(Base):
+    __tablename__ = "ai_suggestions"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_id)
+    shipment_id: Mapped[str] = mapped_column(ForeignKey("shipments.id", ondelete="CASCADE"), index=True)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+    provider: Mapped[str | None] = mapped_column(String(80))
+    model: Mapped[str | None] = mapped_column(String(120))
+    prompt_version: Mapped[str] = mapped_column(String(80), nullable=False)
+    input_references: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    confidence: Mapped[float | None] = mapped_column(Float)
+    rationale: Mapped[str | None] = mapped_column(String(1000))
+    status: Mapped[str] = mapped_column(String(24), default="proposed", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class PlatformResource(Timestamped, Base):
+    """Owner-scoped, versioned-safe metadata for local/manual platform modules.
+
+    This intentionally stores no credentials, raw uploads, or external claims.
+    """
+    __tablename__ = "platform_resources"
+    __table_args__ = (Index("ix_platform_resources_owner_kind_status", "owner_id", "kind", "status"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_id)
+    owner_id: Mapped[str] = mapped_column(String(128), index=True, nullable=False)
+    shipment_id: Mapped[str | None] = mapped_column(ForeignKey("shipments.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    payload: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)

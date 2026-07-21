@@ -1,9 +1,11 @@
 import base64
 import pytest
-from app.models import Category, ClassificationResult, DocumentPackage, ShipmentRequest, TariffData, ValidationResult
+from app.models import Category, ClassificationResult, DocumentPackage, PlatformResourceRequest, ShipmentRequest, TariffData, ValidationResult
 from app.services.doc_engine import DocumentEngine
 from app.services.pdf_generator import render_documents
 from app.services.pipeline import PipelineService
+from app.services.groq_client import AIServiceError
+from pydantic import ValidationError as PydanticValidationError
 
 
 def shipment(destination="DE"):
@@ -34,3 +36,30 @@ async def test_pipeline_adds_missing_document_error():
     async def tariff(*_): return TariffData(duty_rate=4.0, source="test", retrieved_at=__import__("datetime").datetime.now(__import__("datetime").timezone.utc))
     response = await PipelineService(ai=AI(), usitc_lookup=tariff, comtrade_lookup=tariff).run(shipment(), "test")
     assert any(error.document == "ce_declaration" for error in response.validation.errors)
+
+
+@pytest.mark.asyncio
+async def test_pipeline_completes_with_deterministic_fallback_when_ai_is_unavailable():
+    class OfflineAI:
+        async def classify_product(self, *_):
+            raise AIServiceError(code="AI_CONFIGURATION_ERROR", stage="classification", request_id="offline", retryable=False)
+        async def generate_documents(self, *_):
+            raise AIServiceError(code="AI_CONFIGURATION_ERROR", stage="generation", request_id="offline", retryable=False)
+        async def validate_documents(self, *_):
+            raise AIServiceError(code="AI_CONFIGURATION_ERROR", stage="validation", request_id="offline", retryable=False)
+
+    async def tariff(*_):
+        return TariffData(duty_rate=4.0, source="deterministic fixture", retrieved_at=__import__("datetime").datetime.now(__import__("datetime").timezone.utc))
+
+    response = await PipelineService(ai=OfflineAI(), usitc_lookup=tariff, comtrade_lookup=tariff).run(shipment(), "offline")
+    assert response.documents.commercial_invoice["prepared_mode"] == "deterministic_template"
+    assert {stage.step for stage in response.status if stage.status == "fallback"} >= {"classification", "generation", "validation"}
+    assert response.classification.confidence < 0.5
+    assert response.pdfs
+
+
+def test_platform_resource_metadata_rejects_credentials():
+    with pytest.raises(PydanticValidationError):
+        PlatformResourceRequest(name="Carrier adapter", payload={"api_key": "must-not-store"})
+    accepted = PlatformResourceRequest(name="Manual CSV mapping", payload={"columns": ["invoice_number", "quantity"]})
+    assert accepted.payload["columns"] == ["invoice_number", "quantity"]

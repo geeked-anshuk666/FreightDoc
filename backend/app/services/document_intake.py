@@ -7,6 +7,7 @@ returned object deliberately contains no original bytes, path, or EXIF data.
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import re
 from dataclasses import dataclass
@@ -50,6 +51,7 @@ class ExtractedDocument:
     error_code: str | None = None
     error_message: str | None = None
     parser_provenance: str = "native"
+    sha256: str | None = None
 
 
 def _bounded_text(parts: list[str]) -> str:
@@ -214,6 +216,7 @@ def sanitize_and_extract(filename: str | None, mime_type: str | None, data: byte
         text, error_code, error_message = _extract_image(upload)
         provenance = "image_metadata_only"
     fields, findings = _structured_suggestions(text)
+    digest = hashlib.sha256(upload.data).hexdigest()
     if error_code == "OCR_UNAVAILABLE":
         return ExtractedDocument(
             filename=upload.filename,
@@ -227,6 +230,7 @@ def sanitize_and_extract(filename: str | None, mime_type: str | None, data: byte
             error_code=error_code,
             error_message=error_message,
             parser_provenance=provenance,
+            sha256=digest,
         )
     return ExtractedDocument(
         filename=upload.filename,
@@ -238,6 +242,7 @@ def sanitize_and_extract(filename: str | None, mime_type: str | None, data: byte
         findings=findings,
         confidence=0.85 if text else 0.25,
         parser_provenance=provenance,
+        sha256=digest,
     )
 
 

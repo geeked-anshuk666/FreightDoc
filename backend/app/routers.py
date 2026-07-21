@@ -507,6 +507,8 @@ async def intake_document(
             "extraction_error_message": extracted.error_message,
             "original_deleted": True,
             "parser_provenance": extracted.parser_provenance,
+            "sha256": extracted.sha256,
+            "retention_metadata": {"original_retained": False, "hash_algorithm": "sha256"},
         },
         _request_id(request),
     )
@@ -600,6 +602,7 @@ async def retry_document_extraction(
     document.extraction_error_code = extracted.error_code
     document.extraction_error_message = extracted.error_message
     document.parser_provenance = extracted.parser_provenance
+    document.sha256 = extracted.sha256
     await repository.audit("document.retried", "document", document.id, _request_id(request), {"status": document.status})
     await repository.session.commit()
     await repository.session.refresh(document)

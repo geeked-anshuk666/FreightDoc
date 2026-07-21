@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.routers import router
+from app.v1_router import router as v1_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("freightdoc")
@@ -75,3 +76,4 @@ async def health():
 
 
 app.include_router(router)
+app.include_router(v1_router)

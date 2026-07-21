@@ -340,3 +340,89 @@ class ErrorEnvelope(BaseModel):
     code: str
     message: str
     request_id: str | None = None
+
+
+class FactWriteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    field: str = Field(min_length=1, max_length=120, pattern=r"^[a-zA-Z][a-zA-Z0-9_]*$")
+    value: str | int | float | bool | None
+    reason: str | None = Field(default=None, max_length=500)
+    provenance: Literal["manual", "native_extraction", "ai_suggestion"] = "manual"
+    confidence: float = Field(default=1.0, ge=0, le=1)
+    expected_revision: int = Field(ge=0)
+
+
+class ReviewTaskCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: str = Field(min_length=2, max_length=80)
+    reason: str = Field(min_length=3, max_length=1000)
+    assignee_id: str | None = Field(default=None, max_length=128)
+
+
+class ReviewDecisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision: Literal["approved", "rejected", "waived"]
+    reason: str = Field(min_length=3, max_length=1000)
+
+
+class AiSuggestionCreateRequest(BaseModel):
+    """Storage contract only; callers may not apply it as a fact implicitly."""
+    model_config = ConfigDict(extra="forbid")
+    payload: dict[str, Any] = Field(default_factory=dict)
+    provider: str | None = Field(default=None, max_length=80)
+    model: str | None = Field(default=None, max_length=120)
+    prompt_version: str = Field(min_length=1, max_length=80)
+    input_references: list[str] = Field(default_factory=list, max_length=50)
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    rationale: str | None = Field(default=None, max_length=1000)
+
+
+class PlatformResourceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=160)
+    payload: dict[str, Any] = Field(default_factory=dict)
+    shipment_id: str | None = Field(default=None, max_length=36)
+
+    @field_validator("payload")
+    @classmethod
+    def reject_credentials_and_bound_payload(cls, value: dict[str, Any]) -> dict[str, Any]:
+        """Platform resources are metadata only; secrets belong in deployment vaults.
+
+        Reject rather than redact so callers cannot mistake a silently removed
+        credential for configured connectivity. The bounded recursive walk also
+        prevents oversized arbitrary JSON from becoming a database payload.
+        """
+        blocked = ("password", "secret", "token", "api_key", "apikey", "credential", "authorization", "private_key", "webhook")
+
+        def walk(item: Any, depth: int = 0) -> None:
+            if depth > 5:
+                raise ValueError("Platform payload nesting is too deep")
+            if isinstance(item, dict):
+                if len(item) > 50:
+                    raise ValueError("Platform payload has too many fields")
+                for key, nested in item.items():
+                    normalized = str(key).lower().replace("-", "_").replace(" ", "_")
+                    if any(marker in normalized for marker in blocked):
+                        raise ValueError("Platform payload must not contain credentials or secrets")
+                    walk(nested, depth + 1)
+            elif isinstance(item, list):
+                if len(item) > 50:
+                    raise ValueError("Platform payload list is too large")
+                for nested in item:
+                    walk(nested, depth + 1)
+            elif isinstance(item, str) and len(item) > 4000:
+                raise ValueError("Platform payload text is too long")
+
+        walk(value)
+        return value
+
+
+class LandedCostRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    goods_value: float = Field(ge=0, le=100_000_000)
+    freight: float = Field(default=0, ge=0, le=100_000_000)
+    insurance: float = Field(default=0, ge=0, le=100_000_000)
+    fees: float = Field(default=0, ge=0, le=100_000_000)
+    duty_rate: float | None = Field(default=None, ge=0, le=1)
+    tax_rate: float | None = Field(default=None, ge=0, le=1)
+    currency: str = Field(default="USD", min_length=3, max_length=3)
