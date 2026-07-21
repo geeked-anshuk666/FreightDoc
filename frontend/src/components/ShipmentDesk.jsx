@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useFreightPipeline } from '../hooks/useFreightPipeline';
 import DossierView from './DossierView';
+import ShipmentReviewWorkspace from './ShipmentReviewWorkspace';
 import './shipment-desk.css';
 
 const MAX_FILES = 10;
@@ -224,7 +225,7 @@ export default function ShipmentDesk() {
           </div>
         </form>
       </section>
-      {result && <DossierView result={result} />}
+      {result && <><DossierView result={result} /><ShipmentReviewWorkspace result={result} /></>}
     </>
   );
 }

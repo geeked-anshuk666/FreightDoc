@@ -75,6 +75,7 @@ export default function MainNavigation({ variant = 'workspace' }) {
       </button>
       <nav id="freightdoc-primary-navigation" className={`main-nav-links ${open ? 'is-open' : ''}`} aria-label="Primary navigation">
         {!isPublic && <a className={active('/dashboard')} href={dashboardHref} onClick={closeMenu}>My shipments</a>}
+        {!isPublic && <a className={active('/platform')} href="/platform" onClick={closeMenu}>Platform</a>}
         <a ref={firstLinkRef} href={shipmentHref} onClick={closeMenu}>Shipment desk</a>
         <a className={active('/how-it-works')} href="/how-it-works" onClick={closeMenu}>How it works</a>
         <a className={active('/supported-corridors')} href="/supported-corridors" onClick={closeMenu}>Supported corridors</a>

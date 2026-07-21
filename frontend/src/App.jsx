@@ -1,17 +1,24 @@
+import { Suspense, lazy } from 'react';
 import { Show } from '@clerk/react';
 import AuthExperience from './components/AuthExperience';
-import FullscreenCargoStory from './components/FullscreenCargoStory';
 import MainNavigation from './components/MainNavigation';
 import PageMetadata from './components/PageMetadata';
-import PublicInformationPage from './components/PublicInformationPage';
 import PwaStatus from './components/PwaStatus';
-import ShipmentDesk from './components/ShipmentDesk';
-import ShipmentDashboard from './components/ShipmentDashboard';
 import './components/cargo-story-resilience.css';
+
+const FullscreenCargoStory = lazy(() => import('./components/FullscreenCargoStory'));
+const PlatformWorkspace = lazy(() => import('./components/PlatformWorkspace'));
+const PublicInformationPage = lazy(() => import('./components/PublicInformationPage'));
+const ShipmentDashboard = lazy(() => import('./components/ShipmentDashboard'));
+const ShipmentDesk = lazy(() => import('./components/ShipmentDesk'));
+
+function RouteLoadingShell() {
+  return <div className="route-loading-shell" role="status" aria-live="polite">Loading FreightDoc workspace...</div>;
+}
 
 function ShipmentWorkspace() {
   return (
-    <>
+    <Suspense fallback={<RouteLoadingShell />}>
       <FullscreenCargoStory>
         <p>INTELLIGENCE FOR GLOBAL CARGO</p>
         <h1>Move trade<br /><em>with certainty.</em></h1>
@@ -20,7 +27,7 @@ function ShipmentWorkspace() {
         <div className="hero-note"><span>US → DE / LIVE ROUTE</span><span>DOCUMENTS · TARIFFS · REVIEW</span></div>
       </FullscreenCargoStory>
       <ShipmentDesk />
-    </>
+    </Suspense>
   );
 }
 
@@ -28,8 +35,8 @@ export default function App() {
   const path = window.location.pathname.replace(/\/$/, '') || '/';
   const hasClerkKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY?.startsWith('pk_');
 
-  if (path === '/how-it-works') return <><PwaStatus /><PublicInformationPage page="how-it-works" /></>;
-  if (path === '/supported-corridors') return <><PwaStatus /><PublicInformationPage page="corridors" /></>;
+  if (path === '/how-it-works') return <><PwaStatus /><Suspense fallback={<RouteLoadingShell />}><PublicInformationPage page="how-it-works" /></Suspense></>;
+  if (path === '/supported-corridors') return <><PwaStatus /><Suspense fallback={<RouteLoadingShell />}><PublicInformationPage page="corridors" /></Suspense></>;
   if (path === '/sign-in' || path === '/sign-up') return <><PageMetadata noIndex title={path === '/sign-in' ? 'Sign in' : 'Create an account'} description="Access the FreightDoc shipment workspace." /><PwaStatus /><AuthExperience mode={path.slice(1)} /></>;
   if (!hasClerkKey) return <><PageMetadata noIndex title="Sign in" description="Access the FreightDoc shipment workspace." /><AuthExperience mode="sign-in" /></>;
 
@@ -42,7 +49,9 @@ export default function App() {
         <PageMetadata noIndex title={path === '/dashboard' ? 'My shipments' : 'Shipment workspace'} description="Prepare a reviewable export-documentation package in FreightDoc." />
         <main className="freight-platform">
           <MainNavigation />
-          {path === '/dashboard' ? <ShipmentDashboard /> : <ShipmentWorkspace />}
+          <Suspense fallback={<RouteLoadingShell />}>
+            {path === '/dashboard' ? <ShipmentDashboard /> : path === '/platform' ? <PlatformWorkspace /> : <ShipmentWorkspace />}
+          </Suspense>
         </main>
       </Show>
     </>

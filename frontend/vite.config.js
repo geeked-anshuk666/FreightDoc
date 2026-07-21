@@ -40,4 +40,21 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          auth: ['@clerk/react', '@clerk/clerk-js'],
+          animation: ['gsap', 'three'],
+          dossier: ['jszip'],
+          react: ['react', 'react-dom'],
+        },
+      },
+    },
+    rolldownOptions: {
+      output: {
+        codeSplitting: true,
+      },
+    },
+  },
 });
