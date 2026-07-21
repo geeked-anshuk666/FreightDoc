@@ -2,7 +2,7 @@ import DocumentTabs from './DocumentTabs';
 import DownloadBar from './DownloadBar';
 import './dossier-view.css';
 
-const docName = (value) => String(value || '').replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+const docName = (value) => (typeof value === 'string' ? value : '').replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 const objectOrEmpty = (value) => (value && typeof value === 'object' && !Array.isArray(value) ? value : {});
 const textValue = (value, fallback) => {
   if (typeof value === 'string' && value.trim()) return value;
@@ -24,13 +24,17 @@ export default function DossierView({ result = {} }) {
   const findings = Array.isArray(validation.errors) ? validation.errors : [];
   const readyToShip = validation.ready_to_ship === true;
   const score = Number.isFinite(Number(validation.compliance_score)) ? Number(validation.compliance_score) : 0;
+  const classificationDescription = textValue(classification.hs_description, 'Generated shipment dossier');
+  const hsCode = textValue(classification.hs_code, 'Pending review');
+  const category = textValue(classification.category, 'Classification pending');
+  const tariffSource = textValue(tariff.source, 'Tariff source pending');
 
   return <section className="dossier-view" aria-labelledby="dossier-title">
     <header className="dossier-header">
       <div>
         <p>SHIPMENT DOSSIER</p>
-        <h2 id="dossier-title">{classification.hs_description || 'Generated shipment dossier'}</h2>
-        <span>HS {classification.hs_code || 'Pending review'} · {classification.category || 'Classification pending'} · {tariff.source || 'Tariff source pending'}</span>
+        <h2 id="dossier-title">{classificationDescription}</h2>
+        <span>HS {hsCode} · {category} · {tariffSource}</span>
       </div>
       <div className={`readiness${readyToShip ? ' is-ready' : ''}`} aria-label={`Readiness score ${score} out of 100`}>
         <span>Readiness</span><b>{score}</b><small>/ 100</small>
@@ -42,7 +46,7 @@ export default function DossierView({ result = {} }) {
       <section className="dossier-summary" aria-labelledby="requirements-title">
         <h3 id="requirements-title">Shipment requirements</h3>
         <p>{requiredDocs.length} documents identified for this route. Review each document before filing.</p>
-        <ul>{requiredDocs.map((document, index) => <li key={`${docName(document)}-${index}`}>{docName(document)}<span>Required</span></li>)}</ul>
+        <ul>{requiredDocs.map((document, index) => { const name = docName(textValue(document, 'Document')); return <li key={`${name}-${index}`}>{name || 'Document'}<span>Required</span></li>; })}</ul>
         <h3>Compliance checks</h3>
         {findings.length ? <div className="finding-list">{findings.map((finding, index) => <article className={finding?.severity || ''} key={`${finding?.field || 'issue'}-${index}`}><b>{finding?.severity === 'critical' ? 'Action needed' : 'Review note'}</b><span>{textValue(finding?.issue, 'Validation issue requires review.')}</span><small>{textValue(finding?.fix, 'Review the shipment details before filing.')}</small></article>)}</div> : <div className="clear-state">No validation issues were found in the generated package.</div>}
       </section>
