@@ -36,9 +36,6 @@ coverage/
 *.db
 
 # Private/local material and generated demonstration artifacts
-.private_docs/
-outputs/
-chrome-check/
 *.mp4
 *.webm
 
