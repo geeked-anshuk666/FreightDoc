@@ -17,6 +17,7 @@ FreightDoc prepares review-ready export-documentation dossiers from shipment fac
 - [AI Boundaries and Deterministic Fallback](#ai-boundaries-and-deterministic-fallback)
 - [Data, Security, and Retention](#data-security-and-retention)
 - [Supported Corridors](#supported-corridors)
+- [Data Sources](#data-sources)
 - [Detailed Current Tradeoffs](#detailed-current-tradeoffs)
 - [Future Enhancements](#future-enhancements)
 - [Local Development](#local-development)
@@ -174,6 +175,21 @@ The core compliance engine runs completely offline and without external API keys
 * **US to Australia**
 * **India to US**
 * **China to [Specific EU State]** (Note: Specifying `EU` globally is rejected; a specific EU destination state is required)
+
+---
+
+## Data Sources
+
+FreightDoc's deterministic rules and validation criteria are structured around official guidelines and export regulations provided by global trade authorities:
+
+* **[International Trade Administration (ITA) / Trade.gov](https://www.trade.gov/)**: Guides US exporters on global regulations, trade barriers, and required documentation for US outbound shipments.
+* **[European Commission Access2Markets](https://trade.ec.europa.eu/access-to-markets/en/home)**: Provides import requirements, tariffs, product rules, and taxes for shipping to EU member states (e.g., US/China to Germany).
+* **[US Customs and Border Protection (CBP)](https://www.cbp.gov/)**: Dictates the import requirements, tariffs, and customs declaration rules for inbound US freight (e.g., India to US).
+* **[UK HM Revenue & Customs (HMRC)](https://www.gov.uk/government/organisations/hm-revenue-customs)**: Outlines document requirements and UKCA electrical compliance rules for UK inbound corridors.
+* **[Indian Central Board of Indirect Taxes and Customs (CBIC)](https://www.cbic.gov.in/)**: Outlines document structures, BIS electronics compliance, and customs regulations for shipments entering India.
+* **[Japan Customs](https://www.customs.go.jp/english/)**: Standard reference for Japan's customs declarations and PSE electrical safety regulations.
+* **[Canada Border Services Agency (CBSA)](https://www.cbsa-asfc.gc.ca/)**: Outlines documentation rules and import verification guidelines for shipments to Canada.
+* **[Australian Border Force (ABF)](https://www.abf.gov.au/)**: Source for import permits, phytosanitary requirements, and general customs procedures for shipping to Australia.
 
 ---
 
