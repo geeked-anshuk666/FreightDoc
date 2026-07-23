@@ -38,7 +38,6 @@ coverage/
 # Private/local material and generated demonstration artifacts
 *.mp4
 *.webm
-
 # Editor and OS metadata
 .DS_Store
 Thumbs.db

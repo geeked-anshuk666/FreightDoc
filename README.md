@@ -1,92 +1,292 @@
 # FreightDoc
 
-FreightDoc prepares a reviewable export-documentation dossier from shipment facts. It is preparation software—not a customs broker, legal adviser, screening authority, carrier, or filing/clearance service—and a human reviewer remains responsible for consequential decisions.
+FreightDoc prepares review-ready export-documentation dossiers from shipment facts. It is preparation software designed to streamline compliance, document checking, and validation workflows.
 
-## What is built
+> **Note on Project Status:** This README is the primary public source of truth for the FreightDoc codebase and narrative.
 
-- Deterministic country-rule and document-requirement workflow with provenance and fallback labels.
-- Reviewable shipment facts, revisions, review tasks, quality findings, and audit history.
-- Structured draft documents and PDF dossier exports.
-- Bounded document intake: original upload bytes are processed transiently; only permitted metadata and reviewed facts may persist.
-- Local rules/playbooks/rulings, landed-cost scenarios, operations views, and clearly labelled manual/mock connector surfaces.
+---
 
-## Workflow
+## Table of Contents
 
-1. Create a shipment and add facts or safe source documents.
-2. Generate and validate a draft using deterministic rules first.
-3. Review findings and accept, correct, or waive them with a recorded decision.
-4. Export an internally review-ready dossier. Export is not filing or clearance.
+- [What FreightDoc Is](#what-freightdoc-is)
+- [Why It Exists](#why-it-exists)
+- [What the Product Does Today](#what-the-product-does-today)
+- [What It Does Not Do](#what-it-does-not-do)
+- [Tech Stack](#tech-stack)
+- [Architecture](#architecture)
+- [Product Flow](#product-flow)
+- [Routes and Surfaces](#routes-and-surfaces)
+- [AI Boundaries and Deterministic Fallback](#ai-boundaries-and-deterministic-fallback)
+- [Data, Security, and Retention](#data-security-and-retention)
+- [Supported Corridors](#supported-corridors)
+- [Local Development](#local-development)
+- [Environment Variables](#environment-variables)
+- [Testing and Verification](#testing-and-verification)
+- [Deployment](#deployment)
+- [Repository Map](#repository-map)
+- [Documentation Index](#documentation-index)
+- [Build Week / AI Usage Disclosure](#build-week--ai-usage-disclosure)
+- [Current Tradeoffs](#current-tradeoffs)
 
-## Supported corridors
+## Demo Links
 
-US to Germany, UK, India, Japan, Canada, or Australia; India to US; and China to a specified EU member state. `EU` alone is rejected for the China route because a destination country is required. See [known tradeoffs](docs/known_tradeoffs.md).
+- **Demo Video:** [Add the final public or unlisted URL here before release]
+- **Live Frontend:** [Add the final Vercel production URL here before release]
+- **Live API Docs:** [Add the final Render `/docs` URL here before release]
+- **Build Week Submission Notes:** [main_docs_for_hackathon/00_MASTER.md](main_docs_for_hackathon/00_MASTER.md)
 
-## Architecture and AI boundaries
+---
 
-The frontend is React/Vite/PWA with Clerk; the API is FastAPI, SQLAlchemy, and ReportLab. Persistence uses Postgres/Neon when configured. Render and Vercel configuration is included for deployment.
+## What FreightDoc Is
 
-The workflow remains usable without an AI key. Runtime suggestions are optional, configured separately (currently Groq-oriented), labelled when unavailable/fallback, and must be accepted by a person. See the [deterministic AI safety contract](docs/deterministic_ai_safety_contract.md).
+FreightDoc is owner-scoped, deterministic-first, and optionally AI-enhanced review-ready export documentation preparation software. It processes shipment parameters and source documents to compile validation logs, tariff classifications, and review-ready customs document layouts (such as CE declarations, packing lists, commercial invoices, and certificates of origin) into a unified downloadable PDF dossier.
 
-## Local setup
+## Why It Exists
 
-Prerequisites: Python 3.11+ and a current Node/npm installation.
+Cross-border freight compliance is governed by strict, jurisdiction-specific regulatory rules. Traditionally, checking these rules relies either on manual human checklists (which are slow and prone to oversight) or opaque AI prompting (which suffers from hallucinations and lack of auditability). FreightDoc solves this by establishing a **deterministic-first** architecture: compliance rules are hardcoded, and AI is utilized purely as a support layer to suggest metadata extraction, which must then be accepted by a human reviewer.
 
+## What the Product Does Today
+
+- **Saved Workspaces:** Supports owner-scoped saved workspaces with database persistence when configured.
+- **Intake Normalization:** Parses and extracts details from bounded PDF, DOCX, XLSX, CSV, PNG, and JPEG documents.
+- **Deterministic Requirement Resolution:** Dynamically determines required documents, local rules, and scenarios for specific international trade corridors.
+- **Structured AI Suggestions:** Utilizes LLMs (via Groq/other providers) to suggest field classifications, mapping suggestions, and HS codes.
+- **Validation and Discrepancy Auditing:** Evaluates extracted facts against target rules, generating discrepancy flags, compliance errors, and checklist completions.
+- **Dossier Generation:** Compiles canonical shipment records, validation outcomes, and draft customs documents into a clean PDF dossier.
+
+## What It Does Not Do
+
+FreightDoc is a preparation and review assistant. It is **NOT** a:
+- Licensed customs broker
+- Legal adviser or compliance authority
+- Filing service or electronic customs connection
+- Sanctions-screening authority
+
+Human review remains required for all consequential compliance and customs filing decisions.
+
+---
+
+## Tech Stack
+
+| Layer | Technology | Purpose |
+|---|---|---|
+| **Frontend** | React, Vite, Vite PWA | Authenticated workspace and public product pages |
+| **Auth** | Clerk | Identity verification, session token management, and owner scoping |
+| **Backend** | FastAPI | Core API orchestration and server execution |
+| **Persistence** | SQLAlchemy, Alembic, PostgreSQL (Neon) | Canonical database management, migrations, and storage |
+| **AI Runtime** | Groq (or other configured providers) | Optional schema extraction, classification, and validation enhancement |
+| **Deterministic Engine** | Local rules and service logic | Core corridor logic, requirement trees, and fallback flows |
+| **Documents** | ReportLab | High-fidelity PDF dossier rendering |
+| **Intake** | PyMuPDF, python-docx, openpyxl, Pillow | Bounded document text parsing and normalization |
+| **Hosting** | Render, Vercel | Scalable API hosting (Render) and static frontend deployment (Vercel) |
+
+---
+
+## Architecture
+
+```mermaid
+flowchart LR
+    A["React/Vite PWA (Vercel)"] --> B["FastAPI API (Render)"]
+    B --> C["Deterministic Rules (Local Rules Engine)"]
+    B --> D["Optional AI suggestions (Groq Client)"]
+    B --> E["Neon Postgres (SQLAlchemy / Alembic)"]
+    A --> F["Clerk UI + Session Token"]
+    F --> B
+```
+
+The frontend uses Vite to split bundles and compile a responsive Single Page Application (SPA) with Progressive Web App (PWA) capabilities. Route verification is handled by verifying Clerk JWT session tokens on the FastAPI backend, resolving database scopes strictly to the authenticated owner.
+
+---
+
+## Product Flow
+
+```mermaid
+flowchart TD
+    A["Shipment facts entered"] --> B["Optional bounded document intake"]
+    B --> C["Extraction suggestions and metadata"]
+    A --> D["Deterministic corridor and requirement resolution"]
+    C --> E["Human review of facts"]
+    D --> F["Classification and tariff context"]
+    F --> G["Draft document generation"]
+    E --> H["Canonical record updates"]
+    G --> I["Validation findings and readiness review"]
+    H --> I
+    I --> J["PDF dossier export"]
+```
+
+FreightDoc enforces a strict review-first policy: all AI-suggested fields remain uncommitted suggestions until a human operator verifies and canonicalizes them in the workspace.
+
+---
+
+## Routes and Surfaces
+
+### Frontend Routes
+
+* **Public Pages:**
+  * `/how-it-works` — How the system operates.
+  * `/supported-corridors` — Interactive list of trade routes.
+* **Authentication:**
+  * `/sign-in` & `/sign-up` — Clerk-hosted identity interfaces.
+* **Workspaces (Protected):**
+  * `/` — Shipment workspace entry flow.
+  * `/dashboard` — Main list of user shipments.
+  * `/platform` — Global organizational settings and workspace overview.
+
+### Backend Endpoints
+
+* **Public APIs:**
+  * `GET /health` — Check backend readiness.
+  * `GET /api/country-pairs` — List supported corridors.
+  * `POST /api/classify` — Raw HS classification.
+  * `POST /api/generate` — Render sample documents.
+  * `POST /api/validate` — Validate shipment parameters against target country rules.
+  * `POST /api/full-pipeline` — Run end-to-end classification, validation, and layout logic.
+  * `GET /docs` — Swagger API reference.
+* **Protected APIs (`/api/*` and `/api/v1/*`):**
+  * Scope endpoints for managing saved shipments, revisions, review tasks, quality findings, suggestions, audit history, and manual connector mock flows.
+
+---
+
+## AI Boundaries and Deterministic Fallback
+
+The core compliance engine runs completely offline and without external API keys:
+1. **Deterministic Processing:** Country rules, required document matrices, validation rules, and dossier templates are hardcoded locally.
+2. **AI Assistance (Optional):** When configured, the system calls LLMs to accelerate document metadata extraction and suggest HS classifications.
+3. **Graceful Fallback:** If the AI provider is unavailable (e.g., rate limits, missing key), the application defaults to manual entry inputs without crashing or blocking the compliance flow.
+
+---
+
+## Data, Security, and Retention
+
+* **Ephemeral Document Intake:** Bounded document bytes are processed transiently in memory to extract text. Original document bytes are **never** logged, cached, or written to disk.
+* **Opaque Scoping:** Workspace data is partitioned using the opaque Clerk subject identifier (`sub`). No personal profile data (e.g., email, name) is stored in the database.
+* **Export and Deletion:** Users can retrieve a full JSON export of their account data or permanently wipe all database entries associated with their identifier directly from their account dashboard.
+
+---
+
+## Supported Corridors
+
+* **US to Germany** (Triggering conditional CE-declaration requirements)
+* **US to United Kingdom**
+* **US to India**
+* **US to Japan**
+* **US to Canada**
+* **US to Australia**
+* **India to US**
+* **China to [Specific EU State]** (Note: Specifying `EU` globally is rejected; a specific EU destination state is required)
+
+---
+
+## Local Development
+
+### Prerequisites
+- Python 3.11+
+- Node.js (v18+) and npm
+
+### Backend Setup (Windows PowerShell example)
 ```powershell
 cd backend
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-python run_local.py
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe run_local.py
 ```
 
-In another terminal:
-
+### Frontend Setup
 ```powershell
 cd frontend
 npm ci
 npm run dev
 ```
 
-The API health check is `http://127.0.0.1:8000/health`. Configure values locally; never commit them. Names are `GROQ_API_KEY`, `AI_PROVIDER`, `AI_MODEL`, `DATABASE_URL`, `MIGRATIONS_DATABASE_URL`, `ALLOWED_ORIGINS`, `CLERK_JWKS_URL`, `CLERK_ISSUER`, optional `CLERK_AUDIENCE`, `REQUEST_TIMEOUT_SECONDS`, and `DOCUMENT_PARSER_TIMEOUT_SECONDS`. The frontend uses `VITE_API_URL` and `VITE_CLERK_PUBLISHABLE_KEY`.
+Local health check endpoint: `http://127.0.0.1:8000/health`
 
-### Synthetic demo shipment
+---
 
-Use only synthetic data for a demo or local test:
+## Environment Variables
 
-```json
-{
-  "product_name": "Aurora wireless earbuds",
-  "product_description": "Retail-packaged Bluetooth earbuds; synthetic demonstration product.",
-  "origin_country": "US",
-  "destination_country": "DE",
-  "quantity": 500,
-  "declared_value": 25000,
-  "currency": "USD",
-  "exporter_name": "Northstar Demo Goods LLC",
-  "importer_name": "Rhein Demo Retail GmbH"
-}
-```
+### Backend Configuration
+* `GROQ_API_KEY` — API key for LLM suggestions.
+* `AI_PROVIDER` & `AI_MODEL` — Configured AI target (defaults to Groq).
+* `DATABASE_URL` — Neon Postgres database URL.
+* `MIGRATIONS_DATABASE_URL` — Database target for Alembic migrations.
+* `CLERK_JWKS_URL`, `CLERK_ISSUER` — Verification parameters for protected routes.
+* `LOW_CONFIDENCE_THRESHOLD` — Minimum probability score to flag an AI extraction.
 
-The US-to-Germany electronics path visibly exercises a conditional CE declaration requirement. Do not upload customer records or credentials.
+### Frontend Configuration
+* `VITE_API_URL` — Endpoint for the running backend API.
+* `VITE_CLERK_PUBLISHABLE_KEY` — Publishable key for Clerk integration.
+* `VITE_PUBLIC_SITE_URL` — Base client domain.
 
-## Tests and deployment
+---
 
+## Testing and Verification
+
+Ensure verification does not require external network connections:
+
+### Backend Tests
 ```powershell
 cd backend
-python -m pytest tests -q
+.\.venv\Scripts\python.exe -m pytest tests -q
+```
 
-cd ..\frontend
-npm ci
+### Frontend Verification
+```powershell
+cd frontend
 npm run test
 npm run build
 ```
 
-Deploy the API with [Render configuration](render.yaml) and the frontend with Vercel (root directory `frontend`). See the [deployment guide](docs/deployment_guide.md); free tiers may cold-start.
+---
 
-## Documentation
+## Deployment
 
-Start at the [documentation index](docs/documentation_index.md). It links the [system overview](docs/system_overview.md), [API reference](docs/api_reference.md), [testing strategy](docs/testing_strategy.md), [repository policy](docs/repository_policy.md), and [release checklist](docs/release_checklist.md).
+* **Backend:** Scalable API hosted on Render utilizing [render.yaml](render.yaml) and [backend/Dockerfile](backend/Dockerfile).
+* **Frontend:** Deployed to Vercel with configuration from [frontend/vercel.json](frontend/vercel.json).
+* **Database:** Managed serverless Postgres database on Neon.
 
-## Build Week disclosure
+---
 
-Development-tool use is distinct from runtime AI. The repository records only verified claims in the [AI usage disclosure](docs/ai_usage_disclosure.md). Before submission, complete its evidence checklist and place the Codex `/feedback` session ID in the submission form—not in a public transcript.
+## Repository Map
+
+```
+├── .github/                 # CI/CD Workflows
+├── backend/
+│   ├── alembic/             # DB schema migration history
+│   ├── app/                 # FastAPI routes, models, and schemas
+│   ├── tests/               # Backend Pytest suite
+│   ├── Dockerfile
+│   └── run_local.py
+├── docs/                    # Architectural and compliance design docs
+├── frontend/
+│   ├── src/                 # React components and routers
+│   ├── package.json
+│   └── vercel.json
+├── main_docs_for_hackathon/ # Submissions and runbooks
+└── render.yaml              # Render deployment configuration
+```
+
+---
+
+## Documentation Index
+
+Explore further architectural and design choices:
+- [docs/documentation_index.md](docs/documentation_index.md) — Index of all documentation.
+- [docs/system_overview.md](docs/system_overview.md) — General architecture detail.
+- [docs/api_reference.md](docs/api_reference.md) — Endpoint contracts and schemas.
+- [docs/security_architecture.md](docs/security_architecture.md) — Data retention policy and security posture.
+- [docs/deterministic_ai_safety_contract.md](docs/deterministic_ai_safety_contract.md) — Safety mechanisms.
+- [docs/testing_strategy.md](docs/testing_strategy.md) — Verification runbooks.
+
+---
+
+## Build Week / AI Usage Disclosure
+
+* Development-tool utilization and runtime AI are segregated.
+* Complete the evidence checklist in [docs/ai_usage_disclosure.md](docs/ai_usage_disclosure.md) before final release.
+
+---
+
+## Current Tradeoffs
+
+* **Mock Integrations:** External carrier hooks and customs filing triggers use manual simulation connectors.
+* **Free-Tier Limits:** Hosting on free-tier Render and Neon platforms may introduce cold-start latency. Refer to [docs/known_tradeoffs.md](docs/known_tradeoffs.md).
