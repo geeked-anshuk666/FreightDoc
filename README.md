@@ -2,8 +2,6 @@
 
 FreightDoc prepares review-ready export-documentation dossiers from shipment facts. It is preparation software designed to streamline compliance, document checking, and validation workflows.
 
-> **Note on Project Status:** This README is the primary public source of truth for the FreightDoc codebase and narrative.
-
 ---
 
 ## Table of Contents
@@ -13,27 +11,25 @@ FreightDoc prepares review-ready export-documentation dossiers from shipment fac
 - [What the Product Does Today](#what-the-product-does-today)
 - [What It Does Not Do](#what-it-does-not-do)
 - [Tech Stack](#tech-stack)
-- [Architecture](#architecture)
+- [Architecture & Design](#architecture--design)
 - [Product Flow](#product-flow)
 - [Routes and Surfaces](#routes-and-surfaces)
 - [AI Boundaries and Deterministic Fallback](#ai-boundaries-and-deterministic-fallback)
 - [Data, Security, and Retention](#data-security-and-retention)
 - [Supported Corridors](#supported-corridors)
+- [Detailed Current Tradeoffs](#detailed-current-tradeoffs)
+- [Future Enhancements](#future-enhancements)
 - [Local Development](#local-development)
 - [Environment Variables](#environment-variables)
 - [Testing and Verification](#testing-and-verification)
 - [Deployment](#deployment)
-- [Repository Map](#repository-map)
-- [Documentation Index](#documentation-index)
-- [Build Week / AI Usage Disclosure](#build-week--ai-usage-disclosure)
-- [Current Tradeoffs](#current-tradeoffs)
+- [Contributing](#contributing)
 
 ## Demo Links
 
 - **Demo Video:** [Add the final public or unlisted URL here before release]
 - **Live Frontend:** [Add the final Vercel production URL here before release]
 - **Live API Docs:** [Add the final Render `/docs` URL here before release]
-- **Build Week Submission Notes:** [main_docs_for_hackathon/00_MASTER.md](main_docs_for_hackathon/00_MASTER.md)
 
 ---
 
@@ -82,7 +78,10 @@ Human review remains required for all consequential compliance and customs filin
 
 ---
 
-## Architecture
+## Architecture & Design
+
+### System Architecture
+The frontend uses Vite to split bundles and compile a responsive Single Page Application (SPA) with Progressive Web App (PWA) capabilities. Route verification is handled by verifying Clerk JWT session tokens on the FastAPI backend, resolving database queries strictly to the authenticated owner.
 
 ```mermaid
 flowchart LR
@@ -94,7 +93,8 @@ flowchart LR
     F --> B
 ```
 
-The frontend uses Vite to split bundles and compile a responsive Single Page Application (SPA) with Progressive Web App (PWA) capabilities. Route verification is handled by verifying Clerk JWT session tokens on the FastAPI backend, resolving database scopes strictly to the authenticated owner.
+### Core API and Surface
+The API is split into public endpoints that handle stateless classification, validation, and layout rendering, and protected endpoints (`/api/*` and `/api/v1/*`) that manage saved shipments, audit history, and user workspaces.
 
 ---
 
@@ -177,6 +177,26 @@ The core compliance engine runs completely offline and without external API keys
 
 ---
 
+## Detailed Current Tradeoffs
+
+* **Mock Integrations:** External carrier booking channels, customs filing gateways, and screening interfaces are manual mock systems. No state is marked as cleared or filed through live third-party integrations.
+* **Free-Tier Limits:** Hosting on the free tiers of Render, Vercel, and Neon can introduce cold-start latency or monthly quotas.
+* **Tariff/Classification Bounds:** Generated classifications and HS codes serve strictly as extraction recommendations. They do not constitute official tariff rulings or live duty quotes.
+* **Processing Infrastructure Constraints:** Bounded document ingestion processes file text transiently in-memory and does not execute heavy OCR pipelines or local antivirus sweeps.
+* **Database Scopes:** Scoping is tied directly to Clerk unique subjects, omitting multi-user enterprise roles, complex data-sharing logic, or custom permission groups.
+
+---
+
+## Future Enhancements
+
+* **Live Customs and Broker Integrations:** Introduce active broker-partnership APIs and automated customs filing gateways.
+* **Cryptographic Dossier Verification:** Add digital signatures and PDF tamper-evidence features for exported dossiers.
+* **Dynamic Tariff Adapters:** Support source-specific tariff code updates and real-time duty rate lookup engines.
+* **Enterprise Access Controls:** Incorporate robust organization schemas, multi-user role permissions, and shared workspace audit trails.
+* **Antivirus scanning and OCR expansion:** Integrate managed cloud file-scanning services and asynchronous OCR worker queues.
+
+---
+
 ## Local Development
 
 ### Prerequisites
@@ -221,7 +241,7 @@ Local health check endpoint: `http://127.0.0.1:8000/health`
 
 ## Testing and Verification
 
-Ensure verification does not require external network connections:
+A comprehensive test suite validates operations locally and deterministically without requiring external API keys:
 
 ### Backend Tests
 ```powershell
@@ -240,53 +260,12 @@ npm run build
 
 ## Deployment
 
-* **Backend:** Scalable API hosted on Render utilizing [render.yaml](render.yaml) and [backend/Dockerfile](backend/Dockerfile).
-* **Frontend:** Deployed to Vercel with configuration from [frontend/vercel.json](frontend/vercel.json).
+* **Backend:** Scalable API hosted on Render utilizing `render.yaml` and `backend/Dockerfile`.
+* **Frontend:** Deployed to Vercel with configuration from `frontend/vercel.json`.
 * **Database:** Managed serverless Postgres database on Neon.
 
 ---
 
-## Repository Map
+## Contributing
 
-```
-├── .github/                 # CI/CD Workflows
-├── backend/
-│   ├── alembic/             # DB schema migration history
-│   ├── app/                 # FastAPI routes, models, and schemas
-│   ├── tests/               # Backend Pytest suite
-│   ├── Dockerfile
-│   └── run_local.py
-├── docs/                    # Architectural and compliance design docs
-├── frontend/
-│   ├── src/                 # React components and routers
-│   ├── package.json
-│   └── vercel.json
-├── main_docs_for_hackathon/ # Submissions and runbooks
-└── render.yaml              # Render deployment configuration
-```
-
----
-
-## Documentation Index
-
-Explore further architectural and design choices:
-- [docs/documentation_index.md](docs/documentation_index.md) — Index of all documentation.
-- [docs/system_overview.md](docs/system_overview.md) — General architecture detail.
-- [docs/api_reference.md](docs/api_reference.md) — Endpoint contracts and schemas.
-- [docs/security_architecture.md](docs/security_architecture.md) — Data retention policy and security posture.
-- [docs/deterministic_ai_safety_contract.md](docs/deterministic_ai_safety_contract.md) — Safety mechanisms.
-- [docs/testing_strategy.md](docs/testing_strategy.md) — Verification runbooks.
-
----
-
-## Build Week / AI Usage Disclosure
-
-* Development-tool utilization and runtime AI are segregated.
-* Complete the evidence checklist in [docs/ai_usage_disclosure.md](docs/ai_usage_disclosure.md) before final release.
-
----
-
-## Current Tradeoffs
-
-* **Mock Integrations:** External carrier hooks and customs filing triggers use manual simulation connectors.
-* **Free-Tier Limits:** Hosting on free-tier Render and Neon platforms may introduce cold-start latency. Refer to [docs/known_tradeoffs.md](docs/known_tradeoffs.md).
+For instructions on how to set up branches, submit code, or draft documentation changes, refer to the [Contributing Guidelines](file:///d:/computer_science/hackathons/OpenAI%20Build%20Week/FreightDoc/CONTRIBUTING.md) file in the root directory.
