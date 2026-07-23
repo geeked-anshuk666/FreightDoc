@@ -70,7 +70,7 @@ Human review remains required for all consequential compliance and customs filin
 | **Auth** | Clerk | Identity verification, session token management, and owner scoping |
 | **Backend** | FastAPI | Core API orchestration and server execution |
 | **Persistence** | SQLAlchemy, Alembic, PostgreSQL (Neon) | Canonical database management, migrations, and storage |
-| **AI Runtime** | Groq (or other configured providers) | Optional schema extraction, classification, and validation enhancement |
+| **AI Runtime** | Groq (`llama-3.3-70b-versatile`) | Optional schema extraction, classification, and validation enhancement |
 | **Deterministic Engine** | Local rules and service logic | Core corridor logic, requirement trees, and fallback flows |
 | **Documents** | ReportLab | High-fidelity PDF dossier rendering |
 | **Intake** | PyMuPDF, python-docx, openpyxl, Pillow | Bounded document text parsing and normalization |
@@ -179,6 +179,7 @@ The core compliance engine runs completely offline and without external API keys
 
 ## Detailed Current Tradeoffs
 
+* **Free-Tier AI Usage:** Groq API calls run on the free tier, which imposes strict rate limits on requests and tokens; rapid or batch document extraction requests may trigger rate limit errors.
 * **Mock Integrations:** External carrier booking channels, customs filing gateways, and screening interfaces are manual mock systems. No state is marked as cleared or filed through live third-party integrations.
 * **Free-Tier Limits:** Hosting on the free tiers of Render, Vercel, and Neon can introduce cold-start latency or monthly quotas.
 * **Tariff/Classification Bounds:** Generated classifications and HS codes serve strictly as extraction recommendations. They do not constitute official tariff rulings or live duty quotes.
