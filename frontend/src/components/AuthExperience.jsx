@@ -3,6 +3,7 @@ import { SignIn, SignUp } from '@clerk/react';
 import './auth-experience.css';
 
 const media = ['/media/freightdoc-port-01.mp4', '/media/freightdoc-port-02.mp4'];
+const posters = ['/media/freightdoc-port-01.png', '/media/freightdoc-port-02.png'];
 const captions = ['From product brief to shipment-ready documentation.', 'Built for trade that moves across borders.'];
 
 const clerkAppearance = {
@@ -69,7 +70,7 @@ function CinematicMedia() {
     videos[0]?.play().catch(() => undefined);
     return () => { cleanup.forEach((remove) => remove()); videos.forEach((video) => video?.pause()); };
   }, []);
-  return <div className="auth-media" aria-hidden="true">{media.map((source, index) => <video key={source} ref={refs[index]} className={active === index ? 'auth-video is-active' : 'auth-video'} src={source} autoPlay muted playsInline preload={index === 0 ? 'auto' : 'metadata'} />)}<div className="auth-video-tint" /><div className="auth-video-grain" /><div className="auth-brand"><a href="/">FREIGHT<span>DOC</span></a><span>GLOBAL TRADE INTELLIGENCE</span></div><div className="auth-media-copy"><p>INTELLIGENCE FOR GLOBAL CARGO</p><h1>Move trade<br /><em>with certainty.</em></h1><span>Prepare, review, and move shipment documentation with confidence.</span><small>{captions[active]}</small></div><div className="auth-media-index"><span>01</span><i /><span>02</span></div></div>;
+  return <div className="auth-media" aria-hidden="true">{media.map((source, index) => <video key={source} ref={refs[index]} className={active === index ? 'auth-video is-active' : 'auth-video'} src={source} poster={posters[index]} autoPlay muted playsInline preload={index === 0 ? 'auto' : 'metadata'} />)}<div className="auth-video-tint" /><div className="auth-video-grain" /><div className="auth-brand"><a href="/">FREIGHT<span>DOC</span></a><span>GLOBAL TRADE INTELLIGENCE</span></div><div className="auth-media-copy"><p>INTELLIGENCE FOR GLOBAL CARGO</p><h1>Move trade<br /><em>with certainty.</em></h1><span>Prepare, review, and move shipment documentation with confidence.</span><small>{captions[active]}</small></div><div className="auth-media-index"><span>01</span><i /><span>02</span></div></div>;
 }
 
 export default function AuthExperience({ mode, loading = false }) {
