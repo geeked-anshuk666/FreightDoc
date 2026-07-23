@@ -29,14 +29,14 @@ FreightDoc prepares review-ready export-documentation dossiers from shipment fac
 ## Demo Links
 
 - **Demo Video:** [Add the final public or unlisted URL here before release]
-- **Live Frontend:** [Add the final Vercel production URL here before release]
-- **Live API Docs:** [Add the final Render `/docs` URL here before release]
+- **Live Frontend:** https://freight-doc.vercel.app
+- **Live API Docs:** https://freightdoc.onrender.com/docs
 
 ---
 
 ## What FreightDoc Is
 
-FreightDoc is owner-scoped, deterministic-first, and optionally AI-enhanced review-ready export documentation preparation software. It processes shipment parameters and source documents to compile validation logs, tariff classifications, and review-ready customs document layouts (such as CE declarations, packing lists, commercial invoices, and certificates of origin) into a unified downloadable PDF dossier.
+FreightDoc is an owner-scoped, deterministic-first, and optionally AI-enhanced review-ready export documentation preparation application. Built with a fully mobile-responsive design and Progressive Web App (PWA) features for offline-ready access, it processes shipment parameters and source documents to compile validation logs, tariff classifications, and review-ready customs document layouts (such as CE declarations, packing lists, commercial invoices, and certificates of origin) into a unified downloadable PDF dossier.
 
 ## Why It Exists
 
